@@ -35,11 +35,16 @@ function studentsRouter(db) {
     const { section_id } = req.body;
     if (!name) return res.status(400).json({ error: 'اسم الطالب مطلوب' });
     if (!section_id) return res.status(400).json({ error: 'الشعبة مطلوبة' });
-    const info = db.prepare(
-      'UPDATE students SET name = ?, section_id = ? WHERE id = ?'
-    ).run(name, section_id, req.params.id);
-    if (info.changes === 0) return res.status(404).json({ error: 'غير موجود' });
-    res.json({ ok: true });
+    try {
+      const info = db.prepare(
+        'UPDATE students SET name = ?, section_id = ? WHERE id = ?'
+      ).run(name, section_id, req.params.id);
+      if (info.changes === 0) return res.status(404).json({ error: 'غير موجود' });
+      res.json({ ok: true });
+    } catch (e) {
+      if (e.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') return res.status(400).json({ error: 'الشعبة غير موجودة' });
+      throw e;
+    }
   });
 
   router.delete('/students/:id', (req, res) => {
