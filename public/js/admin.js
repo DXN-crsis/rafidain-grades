@@ -423,7 +423,10 @@ async function renderGradesView() {
     for (const r of rows) {
       const tr = el(`<tr data-student="${r.student_id}">
         <td class="subject-name">${escapeHtml(r.student_name)}<br><span class="muted" style="direction:ltr">${escapeHtml(r.exam_number)}</span></td>
-        ${cols.map(([k]) => `<td><input class="input" data-field="${k}" inputmode="numeric" value="${r[k] ?? ''}"></td>`).join('')}
+        ${cols.map(([k]) => {
+          const isManual = ['annual_effort', 'final_grade'].includes(k) && r[k] !== null && r[k] !== undefined && r[k] !== '';
+          return `<td><input class="input" data-field="${k}" inputmode="numeric" value="${r[k] ?? ''}"${isManual ? ' data-manual="1"' : ''}></td>`;
+        }).join('')}
       </tr>`);
       tbody.appendChild(tr);
     }
@@ -436,7 +439,7 @@ async function renderGradesView() {
     // numeric guard + auto-compute + keyboard navigation
     wrap.querySelectorAll('input[data-field]').forEach(input => {
       input.addEventListener('input', () => {
-        input.value = input.value.replace(/[^\d.]/g, '');
+        input.value = input.value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
         if (parseFloat(input.value) > 100) input.value = '100';
         if (['annual_effort', 'final_grade'].includes(input.dataset.field)) input.dataset.manual = '1';
         autoCompute(input.closest('tr'));
