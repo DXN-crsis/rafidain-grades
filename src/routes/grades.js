@@ -34,31 +34,64 @@ function gradesRouter(db) {
       return res.status(400).json({ error: 'بيانات غير صالحة' });
     }
     for (const e of entries) {
+      if (!e || typeof e !== 'object') {
+        return res.status(400).json({ error: 'بيانات غير صالحة' });
+      }
       for (const f of FIELDS) {
         if (!validGrade(e[f])) {
           return res.status(400).json({ error: 'الدرجة يجب أن تكون بين 0 و 100' });
         }
       }
     }
+
+    // Validate the subject's stage matches every graded student's stage BEFORE writing,
+    // so a mismatch never results in a partial write and never silently vanishes.
+    const subject = db.prepare('SELECT id, stage_id FROM subjects WHERE id = ?').get(subject_id);
+    if (!subject) {
+      return res.status(404).json({ error: 'المادة غير موجودة' });
+    }
+    for (const e of entries) {
+      const student = db.prepare(`
+        SELECT sec.stage_id AS stage_id
+        FROM students s JOIN sections sec ON s.section_id = sec.id
+        WHERE s.id = ?
+      `).get(e.student_id);
+      if (!student) {
+        return res.status(400).json({ error: 'الطالب غير موجود' });
+      }
+      if (student.stage_id !== subject.stage_id) {
+        return res.status(400).json({ error: 'المادة لا تنتمي إلى مرحلة الطالب' });
+      }
+    }
+
+    const setClauses = FIELDS.map(
+      (f) => `${f} = CASE WHEN @has_${f} = 1 THEN @${f} ELSE grades.${f} END`
+    ).join(', ');
     const upsert = db.prepare(`
       INSERT INTO grades (student_id, subject_id, first_term_avg, midyear, second_term_avg, annual_effort, final_exam, final_grade)
       VALUES (@student_id, @subject_id, @first_term_avg, @midyear, @second_term_avg, @annual_effort, @final_exam, @final_grade)
       ON CONFLICT(student_id, subject_id) DO UPDATE SET
-        first_term_avg=excluded.first_term_avg, midyear=excluded.midyear,
-        second_term_avg=excluded.second_term_avg, annual_effort=excluded.annual_effort,
-        final_exam=excluded.final_exam, final_grade=excluded.final_grade
+        ${setClauses}
     `);
     const saveAll = db.transaction((rows) => {
       for (const e of rows) {
-        upsert.run({
-          student_id: e.student_id, subject_id,
-          first_term_avg: e.first_term_avg ?? null, midyear: e.midyear ?? null,
-          second_term_avg: e.second_term_avg ?? null, annual_effort: e.annual_effort ?? null,
-          final_exam: e.final_exam ?? null, final_grade: e.final_grade ?? null,
-        });
+        const params = { student_id: e.student_id, subject_id };
+        for (const f of FIELDS) {
+          const has = Object.prototype.hasOwnProperty.call(e, f);
+          params[`has_${f}`] = has ? 1 : 0;
+          params[f] = has ? e[f] ?? null : null;
+        }
+        upsert.run(params);
       }
     });
-    saveAll(entries);
+    try {
+      saveAll(entries);
+    } catch (e) {
+      if (e.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+        return res.status(400).json({ error: 'الطالب غير موجود' });
+      }
+      throw e;
+    }
     res.json({ saved: entries.length });
   });
 

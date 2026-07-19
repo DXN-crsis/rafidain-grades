@@ -5,12 +5,17 @@ const crypto = require('node:crypto');
 
 function createApp({ dbPath }) {
   const app = express();
+  app.set('trust proxy', 1);
   app.use(express.json());
   app.use(session({
     secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
     resave: false,
     saveUninitialized: false,
-    cookie: { httpOnly: true, sameSite: 'lax' },
+    cookie: {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    },
   }));
   app.use(express.static(path.join(__dirname, '..', 'public')));
 
@@ -34,6 +39,19 @@ function createApp({ dbPath }) {
 
   const { studentLookupRouter } = require('./routes/student');
   app.use('/api/student', studentLookupRouter(app.locals.db));
+
+  // JSON 404 fallback for unmatched API routes (must not affect static/HTML serving).
+  app.use('/api', (req, res) => {
+    res.status(404).json({ error: 'المسار غير موجود' });
+  });
+
+  // Terminal error handler: never leak stack traces / HTML error pages to clients.
+  // eslint-disable-next-line no-unused-vars
+  app.use((err, req, res, next) => {
+    console.error(err);
+    const status = err.status && err.status < 500 ? err.status : 500;
+    res.status(status).json({ error: status === 400 ? 'بيانات غير صالحة' : 'حدث خطأ في الخادم' });
+  });
 
   return app;
 }
