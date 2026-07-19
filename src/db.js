@@ -64,6 +64,12 @@ function createDb(dbPath) {
     db.prepare('INSERT INTO admins (username, password_hash) VALUES (?, ?)')
       .run(username, bcrypt.hashSync(password, 10));
   }
+
+  const admins = db.prepare('SELECT password_hash FROM admins').all();
+  if (admins.some((a) => bcrypt.compareSync('rafidain@2026', a.password_hash))) {
+    console.warn('تحذير: كلمة مرور المدير الافتراضية ما زالت قيد الاستخدام، يرجى تغييرها فوراً');
+  }
+
   return db;
 }
 

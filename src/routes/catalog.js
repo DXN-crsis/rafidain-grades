@@ -17,14 +17,15 @@ function crud(router, db, table, { parentCol, dupError, listSql }) {
   });
 
   router.post(base, (req, res) => {
-    const name = (req.body.name || '').trim();
+    const body = req.body || {};
+    const name = (body.name || '').trim();
     if (!name) return res.status(400).json({ error: 'الاسم مطلوب' });
-    if (parentCol && !req.body[parentCol]) {
+    if (parentCol && !body[parentCol]) {
       return res.status(400).json({ error: 'الحقل الأب مطلوب' });
     }
     try {
       const cols = parentCol ? `(name, ${parentCol})` : '(name)';
-      const vals = parentCol ? [name, req.body[parentCol]] : [name];
+      const vals = parentCol ? [name, body[parentCol]] : [name];
       const placeholders = parentCol ? '(?, ?)' : '(?)';
       const info = db.prepare(`INSERT INTO ${table} ${cols} VALUES ${placeholders}`).run(...vals);
       res.status(201).json(db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(info.lastInsertRowid));
@@ -36,7 +37,7 @@ function crud(router, db, table, { parentCol, dupError, listSql }) {
   });
 
   router.put(`${base}/:id`, (req, res) => {
-    const name = (req.body.name || '').trim();
+    const name = ((req.body || {}).name || '').trim();
     if (!name) return res.status(400).json({ error: 'الاسم مطلوب' });
     try {
       const info = db.prepare(`UPDATE ${table} SET name = ? WHERE id = ?`).run(name, req.params.id);
@@ -87,9 +88,10 @@ function catalogRouter(db) {
   });
 
   router.post('/subjects', (req, res) => {
-    const name = (req.body.name || '').trim();
-    const { stage_id } = req.body;
-    const grade_mode = req.body.grade_mode || 'full';
+    const body = req.body || {};
+    const name = (body.name || '').trim();
+    const { stage_id } = body;
+    const grade_mode = body.grade_mode || 'full';
     if (!name) return res.status(400).json({ error: 'الاسم مطلوب' });
     if (!stage_id) return res.status(400).json({ error: 'المرحلة مطلوبة' });
     if (!MODES.includes(grade_mode)) return res.status(400).json({ error: 'نوع سجل الدرجات غير صالح' });
@@ -106,9 +108,10 @@ function catalogRouter(db) {
   });
 
   router.put('/subjects/:id', (req, res) => {
-    const name = (req.body.name || '').trim();
-    const grade_mode = req.body.grade_mode || 'full';
-    const sort_order = Number.isInteger(req.body.sort_order) ? req.body.sort_order : 0;
+    const body = req.body || {};
+    const name = (body.name || '').trim();
+    const grade_mode = body.grade_mode || 'full';
+    const sort_order = Number.isInteger(body.sort_order) ? body.sort_order : 0;
     if (!name) return res.status(400).json({ error: 'الاسم مطلوب' });
     if (!MODES.includes(grade_mode)) return res.status(400).json({ error: 'نوع سجل الدرجات غير صالح' });
     try {

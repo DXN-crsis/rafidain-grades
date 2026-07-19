@@ -14,8 +14,9 @@ function studentsRouter(db) {
   });
 
   router.post('/students', (req, res) => {
-    const name = (req.body.name || '').trim();
-    const { section_id } = req.body;
+    const body = req.body || {};
+    const name = (body.name || '').trim();
+    const { section_id } = body;
     if (!name) return res.status(400).json({ error: 'اسم الطالب مطلوب' });
     if (!section_id) return res.status(400).json({ error: 'الشعبة مطلوبة' });
     try {
@@ -31,8 +32,9 @@ function studentsRouter(db) {
   });
 
   router.put('/students/:id', (req, res) => {
-    const name = (req.body.name || '').trim();
-    const { section_id } = req.body;
+    const body = req.body || {};
+    const name = (body.name || '').trim();
+    const { section_id } = body;
     if (!name) return res.status(400).json({ error: 'اسم الطالب مطلوب' });
     if (!section_id) return res.status(400).json({ error: 'الشعبة مطلوبة' });
     try {

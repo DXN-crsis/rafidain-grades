@@ -5,7 +5,7 @@ function studentLookupRouter(db) {
   const router = express.Router();
 
   router.post('/lookup', createRateLimiter({ max: 10, windowMs: 60000 }), (req, res) => {
-    const examNumber = String(req.body.exam_number || '').trim();
+    const examNumber = String((req.body || {}).exam_number || '').trim();
     const student = db.prepare(`
       SELECT s.id, s.name, sec.name AS section, st.name AS stage, st.id AS stage_id, d.name AS department
       FROM students s
