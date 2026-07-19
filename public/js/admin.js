@@ -345,7 +345,8 @@ routes.students = renderStudentsView;
 function route(name) {
   document.querySelectorAll('.nav-btn[data-route]').forEach(b =>
     b.classList.toggle('active', b.dataset.route === name));
-  (routes[name] || renderCatalogView)();
+  Promise.resolve((routes[name] || renderCatalogView)())
+    .catch(e => showToast(e.message, true));
 }
 
 document.querySelectorAll('.nav-btn[data-route]').forEach(b =>
