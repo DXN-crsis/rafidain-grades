@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>النتيجة — إعدادية الرافدين المهنية</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="/assets/logo.png">
+  <style>
+    .page { max-width: 900px; margin: 0 auto; padding: 1.5rem; }
+    .head-card { display: flex; align-items: center; gap: 1.25rem; margin-bottom: 1.25rem; }
+    .head-card .logo-circle { width: 84px; height: 84px; margin: 0; flex-shrink: 0; }
+    .head-card h1 { font-size: 1.35rem; font-weight: 800; }
+    .head-card .meta { color: var(--text-muted); font-weight: 700; margin-top: 0.25rem; }
+    .head-card .spacer { flex: 1; }
+  </style>
+</head>
+<body>
+  <div class="flag-bar"><span class="red"></span><span class="white"></span><span class="black"></span></div>
+  <button class="theme-toggle" data-theme-icon onclick="toggleTheme()" aria-label="تبديل الوضع الداكن"></button>
+  <div class="page" id="result">
+    <div class="glass-card head-card fade-in">
+      <div class="logo-circle"><img src="/assets/logo.png" alt="شعار المدرسة"></div>
+      <div>
+        <h1 id="studentName"></h1>
+        <div class="meta" id="studentMeta"></div>
+      </div>
+      <div class="spacer"></div>
+      <button class="btn btn-ghost" id="backBtn"><span data-icon="logout"></span>خروج</button>
+    </div>
+    <div class="glass-card fade-in delay-1">
+      <div class="table-wrap">
+        <table class="grades">
+          <thead>
+            <tr>
+              <th>المادة</th>
+              <th>معدل النصف الأول</th>
+              <th>درجة نصف السنة</th>
+              <th>معدل النصف الثاني</th>
+              <th>معدل السعي السنوي</th>
+              <th>درجة الامتحان النهائي</th>
+              <th>الدرجة النهائية</th>
+              <th>النتيجة</th>
+            </tr>
+          </thead>
+          <tbody id="gradesBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <script src="/js/icons.js"></script>
+  <script src="/js/theme.js"></script>
+  <script src="/js/student.js"></script>
+</body>
+</html>
