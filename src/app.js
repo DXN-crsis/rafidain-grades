@@ -26,6 +26,9 @@ function createApp({ dbPath }) {
   const { catalogRouter } = require('./routes/catalog');
   app.use('/api/admin', catalogRouter(app.locals.db));
 
+  const { studentsRouter } = require('./routes/students');
+  app.use('/api/admin', studentsRouter(app.locals.db));
+
   return app;
 }
 
