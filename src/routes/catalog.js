@@ -77,6 +77,53 @@ function catalogRouter(db) {
   crud(router, db, 'stages', { parentCol: 'department_id', dupError: 'المرحلة موجودة مسبقاً' });
   crud(router, db, 'sections', { parentCol: 'stage_id', dupError: 'الشعبة موجودة مسبقاً' });
 
+  const MODES = ['full', 'final_only'];
+
+  router.get('/subjects', (req, res) => {
+    const rows = req.query.stage_id
+      ? db.prepare('SELECT * FROM subjects WHERE stage_id = ? ORDER BY sort_order, id').all(req.query.stage_id)
+      : db.prepare('SELECT * FROM subjects ORDER BY sort_order, id').all();
+    res.json(rows);
+  });
+
+  router.post('/subjects', (req, res) => {
+    const name = (req.body.name || '').trim();
+    const { stage_id } = req.body;
+    const grade_mode = req.body.grade_mode || 'full';
+    if (!name) return res.status(400).json({ error: 'الاسم مطلوب' });
+    if (!stage_id) return res.status(400).json({ error: 'المرحلة مطلوبة' });
+    if (!MODES.includes(grade_mode)) return res.status(400).json({ error: 'نوع سجل الدرجات غير صالح' });
+    try {
+      const info = db.prepare(
+        'INSERT INTO subjects (name, stage_id, grade_mode) VALUES (?, ?, ?)'
+      ).run(name, stage_id, grade_mode);
+      res.status(201).json(db.prepare('SELECT * FROM subjects WHERE id = ?').get(info.lastInsertRowid));
+    } catch (e) {
+      if (e.code === 'SQLITE_CONSTRAINT_UNIQUE') return res.status(409).json({ error: 'المادة موجودة مسبقاً' });
+      if (e.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') return res.status(400).json({ error: 'المرحلة غير موجودة' });
+      throw e;
+    }
+  });
+
+  router.put('/subjects/:id', (req, res) => {
+    const name = (req.body.name || '').trim();
+    const grade_mode = req.body.grade_mode || 'full';
+    const sort_order = Number.isInteger(req.body.sort_order) ? req.body.sort_order : 0;
+    if (!name) return res.status(400).json({ error: 'الاسم مطلوب' });
+    if (!MODES.includes(grade_mode)) return res.status(400).json({ error: 'نوع سجل الدرجات غير صالح' });
+    const info = db.prepare(
+      'UPDATE subjects SET name = ?, grade_mode = ?, sort_order = ? WHERE id = ?'
+    ).run(name, grade_mode, sort_order, req.params.id);
+    if (info.changes === 0) return res.status(404).json({ error: 'غير موجود' });
+    res.json({ ok: true });
+  });
+
+  router.delete('/subjects/:id', (req, res) => {
+    const info = db.prepare('DELETE FROM subjects WHERE id = ?').run(req.params.id);
+    if (info.changes === 0) return res.status(404).json({ error: 'غير موجود' });
+    res.json({ ok: true });
+  });
+
   return router;
 }
 module.exports = { catalogRouter };
