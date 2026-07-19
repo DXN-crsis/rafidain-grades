@@ -23,6 +23,9 @@ function createApp({ dbPath }) {
   const { authRouter } = require('./routes/auth');
   app.use('/api/admin', authRouter(app.locals.db));
 
+  const { catalogRouter } = require('./routes/catalog');
+  app.use('/api/admin', catalogRouter(app.locals.db));
+
   return app;
 }
 
