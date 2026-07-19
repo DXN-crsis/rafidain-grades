@@ -111,11 +111,16 @@ function catalogRouter(db) {
     const sort_order = Number.isInteger(req.body.sort_order) ? req.body.sort_order : 0;
     if (!name) return res.status(400).json({ error: 'الاسم مطلوب' });
     if (!MODES.includes(grade_mode)) return res.status(400).json({ error: 'نوع سجل الدرجات غير صالح' });
-    const info = db.prepare(
-      'UPDATE subjects SET name = ?, grade_mode = ?, sort_order = ? WHERE id = ?'
-    ).run(name, grade_mode, sort_order, req.params.id);
-    if (info.changes === 0) return res.status(404).json({ error: 'غير موجود' });
-    res.json({ ok: true });
+    try {
+      const info = db.prepare(
+        'UPDATE subjects SET name = ?, grade_mode = ?, sort_order = ? WHERE id = ?'
+      ).run(name, grade_mode, sort_order, req.params.id);
+      if (info.changes === 0) return res.status(404).json({ error: 'غير موجود' });
+      res.json({ ok: true });
+    } catch (e) {
+      if (e.code === 'SQLITE_CONSTRAINT_UNIQUE') return res.status(409).json({ error: 'المادة موجودة مسبقاً' });
+      throw e;
+    }
   });
 
   router.delete('/subjects/:id', (req, res) => {
