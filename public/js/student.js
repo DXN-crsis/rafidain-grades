@@ -3,6 +3,12 @@ document.querySelectorAll('[data-icon]').forEach(el => {
   el.innerHTML = window.icons[el.dataset.icon] || '';
 });
 
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[c]);
+}
+
 const examInput = document.getElementById('exam');
 if (examInput) {
   // ---- login page logic ----
@@ -71,14 +77,14 @@ if (resultRoot) {
       const cells = FULL_COLS.map(([key]) => {
         if (sub.grade_mode === 'final_only' && key !== 'final_grade') return '<td>—</td>';
         const v = sub[key];
-        return `<td class="grade-cell" data-value="${v ?? ''}">${v ?? '—'}</td>`;
+        return `<td class="grade-cell" data-value="${escapeHtml(v ?? '')}">${v == null ? '—' : escapeHtml(v)}</td>`;
       }).join('');
       const status = sub.final_grade == null
         ? '<td>—</td>'
         : sub.final_grade >= 50
           ? '<td><span class="badge-pass">ناجح</span></td>'
           : '<td><span class="badge-fail">راسب</span></td>';
-      tr.innerHTML = `<td class="subject-name">${sub.name}</td>${cells}${status}`;
+      tr.innerHTML = `<td class="subject-name">${escapeHtml(sub.name)}</td>${cells}${status}`;
       tbody.appendChild(tr);
     }
 

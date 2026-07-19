@@ -211,6 +211,10 @@ async function renderCatalogView() {
         injectIcons(row);
         row.querySelector('[title="تبديل النوع"]').onclick = async () => {
           const newMode = sb.grade_mode === 'full' ? 'final_only' : 'full';
+          const msg = newMode === 'final_only'
+            ? `تبديل "${sb.name}" إلى الدرجة النهائية فقط سيخفي بقية أعمدة الدرجات لهذه المادة. هل تريد المتابعة؟`
+            : `تبديل "${sb.name}" إلى سجل الدرجات الكامل سيظهر بقية أعمدة الدرجات لهذه المادة. هل تريد المتابعة؟`;
+          if (!confirm(msg)) return;
           try { await apiCall('PUT', `/api/admin/subjects/${sb.id}`, { name: sb.name, grade_mode: newMode, sort_order: sb.sort_order }); refresh().catch(e => showToast(e.message, true)); }
           catch (e) { showToast(e.message, true); }
         };
@@ -471,9 +475,9 @@ async function renderGradesView() {
     saveBtn.onclick = async () => {
       const entries = [...tbody.querySelectorAll('tr')].map(tr => {
         const entry = { student_id: Number(tr.dataset.student) };
-        for (const [k] of GRADE_COLS) {
+        for (const [k] of cols) {
           const i = tr.querySelector(`[data-field="${k}"]`);
-          entry[k] = i && i.value !== '' ? parseFloat(i.value) : null;
+          entry[k] = i.value !== '' ? parseFloat(i.value) : null;
         }
         return entry;
       });
@@ -485,10 +489,47 @@ async function renderGradesView() {
   }
 }
 
+/* ===== password view ===== */
+async function renderPasswordView() {
+  view.innerHTML = '';
+  const card = el(`<div class="glass-card fade-in" style="max-width:420px">
+    <h3 style="margin-bottom:1rem">تغيير كلمة المرور</h3>
+    <div class="field-group" style="display:flex;flex-direction:column;gap:0.8rem">
+      <input class="input" type="password" id="curPass" placeholder="كلمة المرور الحالية">
+      <input class="input" type="password" id="newPass" placeholder="كلمة المرور الجديدة">
+      <input class="input" type="password" id="confPass" placeholder="تأكيد كلمة المرور الجديدة">
+      <button class="btn btn-primary" id="savePass"><span data-icon="save"></span>حفظ</button>
+    </div>
+  </div>`);
+  view.appendChild(card);
+  injectIcons(card);
+
+  const curPass = card.querySelector('#curPass');
+  const newPass = card.querySelector('#newPass');
+  const confPass = card.querySelector('#confPass');
+
+  card.querySelector('#savePass').onclick = async () => {
+    if (newPass.value !== confPass.value) {
+      showToast('كلمتا المرور غير متطابقتين', true);
+      return;
+    }
+    if (newPass.value.length < 8) {
+      showToast('كلمة المرور الجديدة يجب أن تكون 8 أحرف على الأقل', true);
+      return;
+    }
+    try {
+      await apiCall('POST', '/api/admin/password', { current_password: curPass.value, new_password: newPass.value });
+      showToast('تم تغيير كلمة المرور');
+      curPass.value = ''; newPass.value = ''; confPass.value = '';
+    } catch (e) { showToast(e.message, true); }
+  };
+}
+
 /* ===== router ===== */
 const routes = { catalog: renderCatalogView };
 routes.students = renderStudentsView;
 routes.grades = renderGradesView;
+routes.password = renderPasswordView;
 
 function route(name) {
   document.querySelectorAll('.nav-btn[data-route]').forEach(b =>
