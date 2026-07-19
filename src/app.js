@@ -17,7 +17,8 @@ function createApp({ dbPath }) {
   app.get('/api/health', (req, res) => res.json({ ok: true }));
 
   // Routes are mounted here by later tasks.
-  app.locals.dbPath = dbPath;
+  const { createDb } = require('./db');
+  app.locals.db = createDb(dbPath);
   return app;
 }
 
