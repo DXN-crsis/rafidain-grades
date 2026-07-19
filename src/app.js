@@ -19,6 +19,10 @@ function createApp({ dbPath }) {
   // Routes are mounted here by later tasks.
   const { createDb } = require('./db');
   app.locals.db = createDb(dbPath);
+
+  const { authRouter } = require('./routes/auth');
+  app.use('/api/admin', authRouter(app.locals.db));
+
   return app;
 }
 
