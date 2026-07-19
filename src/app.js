@@ -29,6 +29,9 @@ function createApp({ dbPath }) {
   const { studentsRouter } = require('./routes/students');
   app.use('/api/admin', studentsRouter(app.locals.db));
 
+  const { gradesRouter } = require('./routes/grades');
+  app.use('/api/admin', gradesRouter(app.locals.db));
+
   return app;
 }
 
