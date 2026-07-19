@@ -235,10 +235,112 @@ async function renderCatalogView() {
   loadDepts().catch(e => showToast(e.message, true));
 }
 
+/* ===== students view ===== */
+async function renderStudentsView() {
+  view.innerHTML = '';
+  const card = el(`<div class="glass-card fade-in">
+    <h3 style="margin-bottom:1rem">إدارة الطلبة</h3>
+    <div class="toolbar">
+      <select class="input" id="deptSel"><option value="">اختر القسم</option></select>
+      <select class="input" id="stageSel" disabled><option value="">اختر المرحلة</option></select>
+      <select class="input" id="secSel" disabled><option value="">اختر الشعبة</option></select>
+    </div>
+    <div class="toolbar" id="addBar" hidden>
+      <input class="input" id="newStudent" placeholder="اسم الطالب الثلاثي">
+      <button class="btn btn-primary" id="addStudent"><span data-icon="plus"></span>إضافة طالب</button>
+    </div>
+    <div id="studentList"></div>
+  </div>`);
+  view.appendChild(card);
+  injectIcons(card);
+
+  const deptSel = card.querySelector('#deptSel');
+  const stageSel = card.querySelector('#stageSel');
+  const secSel = card.querySelector('#secSel');
+  const addBar = card.querySelector('#addBar');
+
+  const depts = await apiCall('GET', '/api/admin/departments');
+  for (const d of depts) deptSel.appendChild(el(`<option value="${d.id}">${escapeHtml(d.name)}</option>`));
+
+  deptSel.onchange = async () => {
+    stageSel.innerHTML = '<option value="">اختر المرحلة</option>';
+    secSel.innerHTML = '<option value="">اختر الشعبة</option>';
+    secSel.disabled = true; addBar.hidden = true;
+    card.querySelector('#studentList').innerHTML = '';
+    if (!deptSel.value) { stageSel.disabled = true; return; }
+    try {
+      const stages = await apiCall('GET', `/api/admin/stages?department_id=${deptSel.value}`);
+      for (const s of stages) stageSel.appendChild(el(`<option value="${s.id}">${escapeHtml(s.name)}</option>`));
+      stageSel.disabled = false;
+    } catch (e) { showToast(e.message, true); }
+  };
+
+  stageSel.onchange = async () => {
+    secSel.innerHTML = '<option value="">اختر الشعبة</option>';
+    addBar.hidden = true;
+    card.querySelector('#studentList').innerHTML = '';
+    if (!stageSel.value) { secSel.disabled = true; return; }
+    try {
+      const secs = await apiCall('GET', `/api/admin/sections?stage_id=${stageSel.value}`);
+      for (const s of secs) secSel.appendChild(el(`<option value="${s.id}">${escapeHtml(s.name)}</option>`));
+      secSel.disabled = false;
+    } catch (e) { showToast(e.message, true); }
+  };
+
+  secSel.onchange = () => {
+    addBar.hidden = !secSel.value;
+    if (secSel.value) loadStudents().catch(e => showToast(e.message, true));
+  };
+
+  async function loadStudents() {
+    const students = await apiCall('GET', `/api/admin/students?section_id=${secSel.value}`);
+    const list = card.querySelector('#studentList');
+    list.innerHTML = '';
+    if (students.length === 0) {
+      list.innerHTML = '<p style="color:var(--text-muted)">لا يوجد طلبة في هذه الشعبة بعد</p>';
+      return;
+    }
+    for (const st of students) {
+      const row = el(`<div class="list-row">
+        <span class="grow">${escapeHtml(st.name)}
+          <span class="muted">الرقم الامتحاني: <b style="direction:ltr;display:inline-block">${escapeHtml(st.exam_number)}</b></span>
+        </span>
+        <button class="icon-btn" title="تعديل" data-icon="edit"></button>
+        <button class="icon-btn danger" title="حذف" data-icon="trash"></button>
+      </div>`);
+      injectIcons(row);
+      row.querySelector('[title="تعديل"]').onclick = async () => {
+        const name = prompt('الاسم الجديد:', st.name);
+        if (!name) return;
+        try { await apiCall('PUT', `/api/admin/students/${st.id}`, { name, section_id: st.section_id }); loadStudents().catch(e => showToast(e.message, true)); }
+        catch (e) { showToast(e.message, true); }
+      };
+      row.querySelector('[title="حذف"]').onclick = async () => {
+        if (!confirm(`حذف الطالب "${st.name}" ودرجاته؟`)) return;
+        try { await apiCall('DELETE', `/api/admin/students/${st.id}`); loadStudents().catch(e => showToast(e.message, true)); }
+        catch (e) { showToast(e.message, true); }
+      };
+      list.appendChild(row);
+    }
+  }
+
+  card.querySelector('#addStudent').onclick = async () => {
+    const input = card.querySelector('#newStudent');
+    if (!input.value.trim()) return;
+    try {
+      const created = await apiCall('POST', '/api/admin/students', { name: input.value, section_id: Number(secSel.value) });
+      input.value = '';
+      showToast(`تمت الإضافة — الرقم الامتحاني: ${created.exam_number}`);
+      loadStudents().catch(e => showToast(e.message, true));
+    } catch (e) { showToast(e.message, true); }
+  };
+}
+
 /* ===== router ===== */
 const routes = { catalog: renderCatalogView };
-// students & grades views are registered by later tasks:
-// routes.students = renderStudentsView; routes.grades = renderGradesView;
+routes.students = renderStudentsView;
+// grades view is registered by a later task:
+// routes.grades = renderGradesView;
 
 function route(name) {
   document.querySelectorAll('.nav-btn[data-route]').forEach(b =>
