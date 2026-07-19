@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>إعدادية الرافدين المهنية — عرض النتائج</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="/assets/logo.png">
+  <style>
+    .login-wrap { min-height: calc(100vh - 6px); display: grid; place-items: center; padding: 1.5rem; }
+    .login-card { width: 100%; max-width: 420px; text-align: center; }
+    .login-card h1 { font-size: 1.5rem; font-weight: 800; margin-top: 1rem; }
+    .subtitle { color: var(--text-muted); margin: 0.25rem 0 1.5rem; }
+    .login-card label { display: block; font-weight: 700; margin-bottom: 0.6rem; }
+    #exam { text-align: center; font-size: 1.4rem; letter-spacing: 0.4em; direction: ltr; }
+    #loginBtn { width: 100%; justify-content: center; margin-top: 1rem; }
+    .error { color: var(--danger); margin-top: 0.8rem; font-weight: 700; }
+    footer { text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 1rem; }
+    footer a { color: var(--green); text-decoration: none; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="flag-bar"><span class="red"></span><span class="white"></span><span class="black"></span></div>
+  <button class="theme-toggle" data-theme-icon onclick="toggleTheme()" aria-label="تبديل الوضع الداكن"></button>
+  <div class="login-wrap">
+    <div class="glass-card login-card fade-in">
+      <div class="logo-circle"><img src="/assets/logo.png" alt="شعار إعدادية الرافدين المهنية"></div>
+      <h1>إعدادية الرافدين المهنية</h1>
+      <p class="subtitle">منصة عرض النتائج الرسمية</p>
+      <label for="exam">ادخل رقمك الامتحاني</label>
+      <input id="exam" class="input" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="········">
+      <button class="btn btn-primary" id="loginBtn"><span data-icon="search"></span>عرض النتيجة</button>
+      <p id="error" class="error" hidden></p>
+    </div>
+  </div>
+  <footer class="fade-in delay-2">
+    منصة رسمية لعرض النتائج — إعدادية الرافدين المهنية
+    <br><a href="/admin-login.html">دخول الإدارة</a>
+  </footer>
+  <script src="/js/icons.js"></script>
+  <script src="/js/theme.js"></script>
+  <script src="/js/student.js"></script>
+</body>
+</html>
