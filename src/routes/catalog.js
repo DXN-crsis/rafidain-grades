@@ -2,7 +2,7 @@ const express = require('express');
 const { requireAdmin } = require('../middleware/requireAdmin');
 
 // Generic CRUD factory for the three catalog levels.
-function crud(router, db, table, { parentCol, dupError }) {
+function crud(router, db, table, { parentCol, dupError, listSql }) {
   const base = `/${table}`;
 
   router.get(base, (req, res) => {
@@ -11,7 +11,7 @@ function crud(router, db, table, { parentCol, dupError }) {
       rows = db.prepare(`SELECT * FROM ${table} WHERE ${parentCol} = ? ORDER BY name`)
         .all(req.query[parentCol]);
     } else {
-      rows = db.prepare(`SELECT * FROM ${table} ORDER BY name`).all();
+      rows = db.prepare(listSql || `SELECT * FROM ${table} ORDER BY name`).all();
     }
     res.json(rows);
   });
@@ -29,8 +29,8 @@ function crud(router, db, table, { parentCol, dupError }) {
       const info = db.prepare(`INSERT INTO ${table} ${cols} VALUES ${placeholders}`).run(...vals);
       res.status(201).json(db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(info.lastInsertRowid));
     } catch (e) {
-      if (String(e).includes('UNIQUE')) return res.status(409).json({ error: dupError });
-      if (String(e).includes('FOREIGN KEY')) return res.status(400).json({ error: 'العنصر الأب غير موجود' });
+      if (e.code === 'SQLITE_CONSTRAINT_UNIQUE') return res.status(409).json({ error: dupError });
+      if (e.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') return res.status(400).json({ error: 'العنصر الأب غير موجود' });
       throw e;
     }
   });
@@ -43,7 +43,7 @@ function crud(router, db, table, { parentCol, dupError }) {
       if (info.changes === 0) return res.status(404).json({ error: 'غير موجود' });
       res.json({ ok: true });
     } catch (e) {
-      if (String(e).includes('UNIQUE')) return res.status(409).json({ error: dupError });
+      if (e.code === 'SQLITE_CONSTRAINT_UNIQUE') return res.status(409).json({ error: dupError });
       throw e;
     }
   });
@@ -55,25 +55,27 @@ function crud(router, db, table, { parentCol, dupError }) {
   });
 }
 
+// Departments are listed with stage/student counts for the dashboard cards.
+const DEPARTMENTS_LIST_SQL = `
+  SELECT d.id, d.name,
+    (SELECT COUNT(*) FROM stages s WHERE s.department_id = d.id) AS stage_count,
+    (SELECT COUNT(*) FROM students st
+       JOIN sections sec ON st.section_id = sec.id
+       JOIN stages s2 ON sec.stage_id = s2.id
+     WHERE s2.department_id = d.id) AS student_count
+  FROM departments d ORDER BY d.name
+`;
+
 function catalogRouter(db) {
   const router = express.Router();
   router.use(requireAdmin);
-  crud(router, db, 'departments', { parentCol: null, dupError: 'القسم موجود مسبقاً' });
+  crud(router, db, 'departments', {
+    parentCol: null,
+    dupError: 'القسم موجود مسبقاً',
+    listSql: DEPARTMENTS_LIST_SQL,
+  });
   crud(router, db, 'stages', { parentCol: 'department_id', dupError: 'المرحلة موجودة مسبقاً' });
   crud(router, db, 'sections', { parentCol: 'stage_id', dupError: 'الشعبة موجودة مسبقاً' });
-
-  // Enrich department list with counts for the dashboard cards.
-  router.get('/departments-summary', (req, res) => {
-    res.json(db.prepare(`
-      SELECT d.id, d.name,
-        (SELECT COUNT(*) FROM stages s WHERE s.department_id = d.id) AS stage_count,
-        (SELECT COUNT(*) FROM students st
-           JOIN sections sec ON st.section_id = sec.id
-           JOIN stages s2 ON sec.stage_id = s2.id
-         WHERE s2.department_id = d.id) AS student_count
-      FROM departments d ORDER BY d.name
-    `).all());
-  });
 
   return router;
 }
