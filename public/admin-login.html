@@ -57,22 +57,31 @@
   <script>
     document.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = window.icons[el.dataset.icon] || ''; });
     const err = document.getElementById('error');
+    const loginBtn = document.getElementById('loginBtn');
     async function login() {
       err.hidden = true;
-      const res = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          username: document.getElementById('username').value.trim(),
-          password: document.getElementById('password').value,
-        }),
-      });
-      if (res.ok) { location.href = '/admin.html'; return; }
-      const data = await res.json().catch(() => ({}));
-      err.textContent = data.error || 'حدث خطأ';
-      err.hidden = false;
+      loginBtn.disabled = true;
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            username: document.getElementById('username').value.trim(),
+            password: document.getElementById('password').value,
+          }),
+        });
+        if (res.ok) { location.href = '/admin.html'; return; }
+        const data = await res.json().catch(() => ({}));
+        err.textContent = data.error || 'حدث خطأ';
+        err.hidden = false;
+      } catch {
+        err.textContent = 'تعذر الاتصال بالخادم';
+        err.hidden = false;
+      } finally {
+        loginBtn.disabled = false;
+      }
     }
-    document.getElementById('loginBtn').addEventListener('click', login);
+    loginBtn.addEventListener('click', login);
     document.getElementById('password').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
   </script>
 </body>
