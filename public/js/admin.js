@@ -336,11 +336,156 @@ async function renderStudentsView() {
   };
 }
 
+/* ===== grades view ===== */
+const GRADE_COLS = [
+  ['first_term_avg', 'معدل النصف الأول'],
+  ['midyear', 'درجة نصف السنة'],
+  ['second_term_avg', 'معدل النصف الثاني'],
+  ['annual_effort', 'معدل السعي السنوي'],
+  ['final_exam', 'درجة الامتحان النهائي'],
+  ['final_grade', 'الدرجة النهائية'],
+];
+
+async function renderGradesView() {
+  view.innerHTML = '';
+  const card = el(`<div class="glass-card fade-in">
+    <h3 style="margin-bottom:1rem">إدخال الدرجات</h3>
+    <div class="toolbar">
+      <select class="input" id="gDept"><option value="">القسم</option></select>
+      <select class="input" id="gStage" disabled><option value="">المرحلة</option></select>
+      <select class="input" id="gSec" disabled><option value="">الشعبة</option></select>
+      <select class="input" id="gSub" disabled><option value="">المادة</option></select>
+    </div>
+    <div id="gridWrap"></div>
+  </div>`);
+  view.appendChild(card);
+  injectIcons(card);
+
+  const gDept = card.querySelector('#gDept');
+  const gStage = card.querySelector('#gStage');
+  const gSec = card.querySelector('#gSec');
+  const gSub = card.querySelector('#gSub');
+  let subjects = [];
+
+  for (const d of await apiCall('GET', '/api/admin/departments')) {
+    gDept.appendChild(el(`<option value="${d.id}">${escapeHtml(d.name)}</option>`));
+  }
+  gDept.onchange = async () => {
+    gStage.innerHTML = '<option value="">المرحلة</option>'; gSec.innerHTML = '<option value="">الشعبة</option>'; gSub.innerHTML = '<option value="">المادة</option>';
+    gSec.disabled = gSub.disabled = true; card.querySelector('#gridWrap').innerHTML = '';
+    if (!gDept.value) { gStage.disabled = true; return; }
+    try {
+      for (const s of await apiCall('GET', `/api/admin/stages?department_id=${gDept.value}`)) {
+        gStage.appendChild(el(`<option value="${s.id}">${escapeHtml(s.name)}</option>`));
+      }
+      gStage.disabled = false;
+    } catch (e) { showToast(e.message, true); }
+  };
+  gStage.onchange = async () => {
+    gSec.innerHTML = '<option value="">الشعبة</option>'; gSub.innerHTML = '<option value="">المادة</option>';
+    gSub.disabled = true; card.querySelector('#gridWrap').innerHTML = '';
+    if (!gStage.value) { gSec.disabled = true; return; }
+    try {
+      for (const s of await apiCall('GET', `/api/admin/sections?stage_id=${gStage.value}`)) {
+        gSec.appendChild(el(`<option value="${s.id}">${escapeHtml(s.name)}</option>`));
+      }
+      subjects = await apiCall('GET', `/api/admin/subjects?stage_id=${gStage.value}`);
+      gSec.disabled = false;
+    } catch (e) { showToast(e.message, true); }
+  };
+  gSec.onchange = () => {
+    gSub.innerHTML = '<option value="">المادة</option>';
+    card.querySelector('#gridWrap').innerHTML = '';
+    if (!gSec.value) { gSub.disabled = true; return; }
+    for (const s of subjects) {
+      gSub.appendChild(el(`<option value="${s.id}">${escapeHtml(s.name)}</option>`));
+    }
+    gSub.disabled = false;
+  };
+  gSub.onchange = () => { if (gSub.value) loadGrid().catch(e => showToast(e.message, true)); };
+
+  async function loadGrid() {
+    const subject = subjects.find(s => s.id === Number(gSub.value));
+    const cols = subject.grade_mode === 'final_only'
+      ? GRADE_COLS.filter(([k]) => k === 'final_grade')
+      : GRADE_COLS;
+    const rows = await apiCall('GET', `/api/admin/grades?section_id=${gSec.value}&subject_id=${gSub.value}`);
+    const wrap = card.querySelector('#gridWrap');
+    wrap.innerHTML = '';
+    if (rows.length === 0) { wrap.innerHTML = '<p style="color:var(--text-muted)">لا يوجد طلبة في هذه الشعبة</p>'; return; }
+
+    const table = el(`<div class="table-wrap"><table class="grades">
+      <thead><tr><th>الطالب</th>${cols.map(([, label]) => `<th>${escapeHtml(label)}</th>`).join('')}</tr></thead>
+      <tbody></tbody>
+    </table></div>`);
+    const tbody = table.querySelector('tbody');
+
+    for (const r of rows) {
+      const tr = el(`<tr data-student="${r.student_id}">
+        <td class="subject-name">${escapeHtml(r.student_name)}<br><span class="muted" style="direction:ltr">${escapeHtml(r.exam_number)}</span></td>
+        ${cols.map(([k]) => `<td><input class="input" data-field="${k}" inputmode="numeric" value="${r[k] ?? ''}"></td>`).join('')}
+      </tr>`);
+      tbody.appendChild(tr);
+    }
+    wrap.appendChild(table);
+
+    const saveBtn = el(`<button class="btn btn-primary" style="margin-top:1rem"><span data-icon="save"></span>حفظ الدرجات</button>`);
+    injectIcons(saveBtn);
+    wrap.appendChild(saveBtn);
+
+    // numeric guard + auto-compute + keyboard navigation
+    wrap.querySelectorAll('input[data-field]').forEach(input => {
+      input.addEventListener('input', () => {
+        input.value = input.value.replace(/[^\d.]/g, '');
+        if (parseFloat(input.value) > 100) input.value = '100';
+        if (['annual_effort', 'final_grade'].includes(input.dataset.field)) input.dataset.manual = '1';
+        autoCompute(input.closest('tr'));
+      });
+      input.addEventListener('keydown', e => {
+        if (!['Enter', 'ArrowDown', 'ArrowUp'].includes(e.key)) return;
+        e.preventDefault();
+        const tr = input.closest('tr');
+        const target = (e.key === 'ArrowUp') ? tr.previousElementSibling : tr.nextElementSibling;
+        if (target) {
+          const next = target.querySelector(`input[data-field="${input.dataset.field}"]`);
+          if (next) { next.focus(); next.select(); }
+        }
+      });
+    });
+
+    function autoCompute(tr) {
+      const get = f => { const i = tr.querySelector(`[data-field="${f}"]`); return i && i.value !== '' ? parseFloat(i.value) : null; };
+      const set = (f, v) => {
+        const i = tr.querySelector(`[data-field="${f}"]`);
+        if (i && i.dataset.manual !== '1') i.value = v;
+      };
+      const t1 = get('first_term_avg'), mid = get('midyear'), t2 = get('second_term_avg');
+      if (t1 !== null && mid !== null && t2 !== null) set('annual_effort', Math.round((t1 + mid + t2) / 3));
+      const eff = get('annual_effort'), fin = get('final_exam');
+      if (eff !== null && fin !== null) set('final_grade', Math.round((eff + fin) / 2));
+    }
+
+    saveBtn.onclick = async () => {
+      const entries = [...tbody.querySelectorAll('tr')].map(tr => {
+        const entry = { student_id: Number(tr.dataset.student) };
+        for (const [k] of GRADE_COLS) {
+          const i = tr.querySelector(`[data-field="${k}"]`);
+          entry[k] = i && i.value !== '' ? parseFloat(i.value) : null;
+        }
+        return entry;
+      });
+      try {
+        const r = await apiCall('PUT', '/api/admin/grades', { subject_id: Number(gSub.value), entries });
+        showToast(`تم حفظ درجات ${r.saved} طالب`);
+      } catch (e) { showToast(e.message, true); }
+    };
+  }
+}
+
 /* ===== router ===== */
 const routes = { catalog: renderCatalogView };
 routes.students = renderStudentsView;
-// grades view is registered by a later task:
-// routes.grades = renderGradesView;
+routes.grades = renderGradesView;
 
 function route(name) {
   document.querySelectorAll('.nav-btn[data-route]').forEach(b =>
