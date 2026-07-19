@@ -1,0 +1,270 @@
+/* ==========================================================================
+   منصة الرافدين — نظام التصميم (Design System)
+   إعدادية الرافدين المهنية — Grades Portal
+   Formal government-green glass aesthetic with a subtle "twin rivers"
+   watermark motif (الرافدين = the two rivers, Tigris & Euphrates) as the
+   one signature flourish. Everything else stays quiet and disciplined.
+   ========================================================================== */
+
+/* ===== الخطوط (Tajawal — served locally, offline-safe) ===== */
+@font-face {
+  font-family: 'Tajawal';
+  src: url('../fonts/tajawal-v12-arabic_latin-regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Tajawal';
+  src: url('../fonts/tajawal-v12-arabic_latin-500.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Tajawal';
+  src: url('../fonts/tajawal-v12-arabic_latin-700.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Tajawal';
+  src: url('../fonts/tajawal-v12-arabic_latin-800.woff2') format('woff2');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ===== المتغيرات (design tokens) ===== */
+:root {
+  /* الهوية / brand */
+  --green: #0d7a3f;
+  --green-dark: #095c2f;
+  --green-light: #e6f4ec;
+  --bg: #f4f7f5;
+  --bg-gradient: linear-gradient(160deg, #f8fbf9 0%, #e9f3ed 50%, #f2f6f3 100%);
+  --text: #17251c;
+  --text-muted: #5a6b60;
+  --card-bg: rgba(255, 255, 255, 0.62);
+  --card-border: rgba(255, 255, 255, 0.8);
+  --card-shadow: 0 8px 32px rgba(13, 122, 63, 0.10);
+  --input-bg: rgba(255, 255, 255, 0.85);
+  --danger: #c0392b;
+  --radius: 16px;
+
+  /* مقياس المسافات / spacing scale */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-8: 3rem;
+
+  /* المقياس الطباعي / type scale */
+  --fs-xs: 0.8rem;
+  --fs-sm: 0.9rem;
+  --fs-base: 1rem;
+  --fs-md: 1.15rem;
+  --fs-lg: 1.5rem;
+  --fs-xl: 2rem;
+  --fs-2xl: 2.75rem;
+
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[data-theme="dark"] {
+  --green: #2ecc71;
+  --green-dark: #27ae60;
+  --green-light: #10281a;
+  --bg: #0e1512;
+  --bg-gradient: linear-gradient(160deg, #0d1411 0%, #101d15 50%, #0c1310 100%);
+  --text: #e8f2ec;
+  --text-muted: #93a89b;
+  --card-bg: rgba(20, 32, 25, 0.62);
+  --card-border: rgba(255, 255, 255, 0.08);
+  --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  --input-bg: rgba(10, 18, 14, 0.7);
+  --danger: #e74c3c;
+}
+
+/* ===== إعادة ضبط أساسية ===== */
+* { box-sizing: border-box; margin: 0; }
+html { font-size: 16px; scroll-behavior: smooth; }
+body {
+  font-family: 'Tajawal', 'Segoe UI', Tahoma, Arial, sans-serif;
+  font-size: var(--fs-base);
+  background: var(--bg-gradient);
+  background-attachment: fixed;
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.6;
+  transition: background 0.4s var(--ease), color 0.4s var(--ease);
+  position: relative;
+}
+
+/* شريط تمرير هادئ يتماشى مع الهوية */
+::selection { background: var(--green); color: #fff; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 999px; }
+
+/* وضوح التركيز لأغراض الوصول (a11y) */
+:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
+/* ===== توقيع الهوية: "نهرا الرافدين" — خطوط مائية خافتة جدًا في الخلفية =====
+   إشارة بصرية لطيفة إلى دجلة والفرات، بشفافية منخفضة جدًا حتى لا تتعارض
+   مع أي محتوى فوقها. عنصر زخرفي بحت، معطّل التفاعل، ولا يمس أي فئة عقدية. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.5;
+  background-repeat: no-repeat;
+  background-position: bottom -10% center;
+  background-size: 140% auto;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 400'%3E%3Cpath d='M0 220 C 150 160, 300 280, 450 200 S 750 120, 900 210 S 1100 300, 1200 240' stroke='%230d7a3f' stroke-opacity='0.05' stroke-width='2' fill='none'/%3E%3Cpath d='M0 300 C 180 250, 320 360, 500 300 S 780 210, 950 300 S 1100 360, 1200 320' stroke='%230d7a3f' stroke-opacity='0.045' stroke-width='2' fill='none'/%3E%3C/svg%3E");
+}
+[data-theme="dark"] body::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 400'%3E%3Cpath d='M0 220 C 150 160, 300 280, 450 200 S 750 120, 900 210 S 1100 300, 1200 240' stroke='%232ecc71' stroke-opacity='0.06' stroke-width='2' fill='none'/%3E%3Cpath d='M0 300 C 180 250, 320 360, 500 300 S 780 210, 950 300 S 1100 360, 1200 320' stroke='%232ecc71' stroke-opacity='0.05' stroke-width='2' fill='none'/%3E%3C/svg%3E");
+}
+
+/* ===== العناوين ===== */
+h1, h2, h3, h4 {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+h1 { font-size: var(--fs-2xl); }
+h2 { font-size: var(--fs-xl); }
+h3 { font-size: var(--fs-lg); }
+h4 { font-size: var(--fs-md); }
+p { color: var(--text-muted); }
+
+/* أرقام الدرجات: أرقام متساوية العرض لجداول أنيقة */
+.num, table.grades td, .stat-number {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== شريط العلم العراقي ===== */
+.flag-bar { height: 6px; display: flex; }
+.flag-bar span { flex: 1; }
+.flag-bar .red { background: #ce1126; }
+.flag-bar .white { background: #ffffff; }
+.flag-bar .black { background: #000000; }
+
+/* ===== البطاقة الزجاجية ===== */
+.glass-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  box-shadow: var(--card-shadow);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  padding: 1.75rem;
+}
+
+/* ===== الشعار ===== */
+/* الشعار له خلفية فيروزية صلبة — يجب عرضه دومًا داخل دائرة بيضاء */
+.logo-circle {
+  width: 120px; height: 120px; border-radius: 50%;
+  background: #fff; display: grid; place-items: center;
+  overflow: hidden; margin-inline: auto;
+  border: 3px solid var(--green);
+  box-shadow: 0 4px 20px rgba(13, 122, 63, 0.25);
+}
+.logo-circle img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ===== الأزرار والحقول ===== */
+.btn {
+  font-family: inherit; font-size: 1rem; font-weight: 700;
+  border: none; border-radius: 12px; padding: 0.7rem 1.4rem;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem;
+  transition: transform 0.15s var(--ease), box-shadow 0.15s var(--ease), background 0.2s var(--ease);
+}
+.btn:hover { transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+.btn-primary { background: var(--green); color: #fff; box-shadow: 0 4px 14px rgba(13,122,63,0.35); }
+.btn-primary:hover { background: var(--green-dark); }
+.btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+.btn-danger:hover { background: rgba(192,57,43,0.08); }
+.btn-ghost { background: transparent; color: var(--text-muted); }
+.btn-ghost:hover { background: rgba(90,107,96,0.08); }
+.btn svg { width: 18px; height: 18px; }
+
+.input {
+  font-family: inherit; font-size: 1rem; color: var(--text);
+  background: var(--input-bg); border: 1px solid var(--card-border);
+  border-radius: 12px; padding: 0.7rem 1rem; width: 100%;
+  transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.input::placeholder { color: var(--text-muted); }
+.input:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(13,122,63,0.15); }
+
+/* ===== شارات النجاح/الرسوب ===== */
+.badge-pass, .badge-fail {
+  display: inline-block; padding: 0.15rem 0.7rem; border-radius: 999px;
+  font-weight: 700; font-size: 0.85rem;
+}
+.badge-pass { background: var(--green-light); color: var(--green); }
+.badge-fail { background: rgba(192,57,43,0.12); color: var(--danger); }
+
+/* ===== زر الوضع الداكن ===== */
+.theme-toggle {
+  position: fixed; top: 18px; left: 18px; z-index: 50;
+  width: 42px; height: 42px; border-radius: 50%;
+  display: grid; place-items: center; cursor: pointer;
+  background: var(--card-bg); border: 1px solid var(--card-border);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  color: var(--text);
+  box-shadow: var(--card-shadow);
+  transition: transform 0.2s var(--ease), background 0.3s var(--ease), color 0.3s var(--ease);
+}
+.theme-toggle:hover { transform: translateY(-1px) scale(1.04); }
+.theme-toggle svg { width: 20px; height: 20px; }
+
+/* ===== أنميشن ===== */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.fade-in { animation: fadeUp 0.5s var(--ease) both; }
+.fade-in.delay-1 { animation-delay: 0.1s; }
+.fade-in.delay-2 { animation-delay: 0.2s; }
+.fade-in.delay-3 { animation-delay: 0.3s; }
+
+/* ===== جداول الدرجات ===== */
+.table-wrap { overflow-x: auto; }
+table.grades { width: 100%; border-collapse: collapse; }
+table.grades th, table.grades td {
+  padding: 0.65rem 0.9rem; text-align: center;
+  border-bottom: 1px solid var(--card-border);
+  white-space: nowrap;
+}
+table.grades th { color: var(--text-muted); font-weight: 700; font-size: 0.85rem; }
+table.grades tbody tr { transition: background 0.15s var(--ease); }
+table.grades tbody tr:hover { background: rgba(13, 122, 63, 0.05); }
+table.grades td.subject-name { text-align: right; font-weight: 700; }
+table.grades input.input { width: 4.5rem; padding: 0.35rem; text-align: center; }
+
+/* ===== أدوات مساعدة عامة (لا تتعارض مع العقد أعلاه) ===== */
+.container { max-width: 1080px; margin-inline: auto; padding-inline: var(--space-5); }
+.text-muted { color: var(--text-muted); }
+.text-center { text-align: center; }
+.stack { display: flex; flex-direction: column; gap: var(--space-4); }
+.row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+
+@media (max-width: 640px) {
+  .glass-card { padding: 1.25rem; border-radius: 14px; }
+  h1 { font-size: 1.6rem; }
+  .logo-circle { width: 92px; height: 92px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { animation: none !important; transition: none !important; }
+}
