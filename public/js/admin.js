@@ -26,6 +26,12 @@ function el(html) {
   return t.content.firstElementChild;
 }
 
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[c]);
+}
+
 function injectIcons(root = document) {
   root.querySelectorAll('[data-icon]').forEach(n => { n.innerHTML = window.icons[n.dataset.icon] || ''; });
 }
@@ -60,7 +66,7 @@ async function renderCatalogView() {
     list.innerHTML = '';
     for (const d of depts) {
       const row = el(`<div class="list-row">
-        <span class="grow" style="cursor:pointer">${d.name}</span>
+        <span class="grow" style="cursor:pointer">${escapeHtml(d.name)}</span>
         <button class="icon-btn" title="تعديل" data-icon="edit"></button>
         <button class="icon-btn danger" title="حذف" data-icon="trash"></button>
       </div>`);
@@ -69,12 +75,12 @@ async function renderCatalogView() {
       row.querySelector('[title="تعديل"]').onclick = async () => {
         const name = prompt('الاسم الجديد للقسم:', d.name);
         if (!name) return;
-        try { await apiCall('PUT', `/api/admin/departments/${d.id}`, { name }); loadDepts(); }
+        try { await apiCall('PUT', `/api/admin/departments/${d.id}`, { name }); loadDepts().catch(e => showToast(e.message, true)); }
         catch (e) { showToast(e.message, true); }
       };
       row.querySelector('[title="حذف"]').onclick = async () => {
         if (!confirm(`حذف قسم "${d.name}" وكل ما يتبعه من مراحل وشعب وطلبة؟`)) return;
-        try { await apiCall('DELETE', `/api/admin/departments/${d.id}`); loadDepts(); }
+        try { await apiCall('DELETE', `/api/admin/departments/${d.id}`); loadDepts().catch(e => showToast(e.message, true)); }
         catch (e) { showToast(e.message, true); }
       };
       list.appendChild(row);
@@ -84,7 +90,7 @@ async function renderCatalogView() {
   card.querySelector('#addDept').onclick = async () => {
     const input = card.querySelector('#newDept');
     if (!input.value.trim()) return;
-    try { await apiCall('POST', '/api/admin/departments', { name: input.value }); input.value = ''; loadDepts(); showToast('تمت إضافة القسم'); }
+    try { await apiCall('POST', '/api/admin/departments', { name: input.value }); input.value = ''; loadDepts().catch(e => showToast(e.message, true)); showToast('تمت إضافة القسم'); }
     catch (e) { showToast(e.message, true); }
   };
 
@@ -92,7 +98,7 @@ async function renderCatalogView() {
     const pane = card.querySelector('#detailPane');
     pane.innerHTML = '';
     const box = el(`<div>
-      <h4 style="margin-bottom:0.8rem">مراحل قسم ${dept.name}</h4>
+      <h4 style="margin-bottom:0.8rem">مراحل قسم ${escapeHtml(dept.name)}</h4>
       <div class="toolbar">
         <input class="input" id="newStage" placeholder="مثال: المرحلة الثالثة">
         <button class="btn btn-primary" id="addStage"><span data-icon="plus"></span>إضافة مرحلة</button>
@@ -109,7 +115,7 @@ async function renderCatalogView() {
       for (const s of stages) {
         const row = el(`<div>
           <div class="list-row">
-            <span class="grow">${s.name}</span>
+            <span class="grow">${escapeHtml(s.name)}</span>
             <button class="btn btn-ghost btn-sm" data-act="sections">الشعب</button>
             <button class="btn btn-ghost btn-sm" data-act="subjects">المواد</button>
             <button class="icon-btn danger" title="حذف" data-icon="trash"></button>
@@ -118,8 +124,8 @@ async function renderCatalogView() {
         </div>`);
         injectIcons(row);
         row.querySelector('[title="حذف"]').onclick = async () => {
-          if (!confirm(`حذف "${s.name}"؟`)) return;
-          try { await apiCall('DELETE', `/api/admin/stages/${s.id}`); refresh(); }
+          if (!confirm(`حذف "${s.name}" وكل ما يتبعه من شعب ومواد وطلبة؟`)) return;
+          try { await apiCall('DELETE', `/api/admin/stages/${s.id}`); refresh().catch(e => showToast(e.message, true)); }
           catch (e) { showToast(e.message, true); }
         };
         row.querySelector('[data-act="sections"]').onclick = () => renderSections(s, row.querySelector('.sub-pane'));
@@ -131,10 +137,10 @@ async function renderCatalogView() {
     box.querySelector('#addStage').onclick = async () => {
       const input = box.querySelector('#newStage');
       if (!input.value.trim()) return;
-      try { await apiCall('POST', '/api/admin/stages', { name: input.value, department_id: dept.id }); input.value = ''; refresh(); }
+      try { await apiCall('POST', '/api/admin/stages', { name: input.value, department_id: dept.id }); input.value = ''; refresh().catch(e => showToast(e.message, true)); }
       catch (e) { showToast(e.message, true); }
     };
-    refresh();
+    refresh().catch(e => showToast(e.message, true));
   }
 
   async function renderSections(stage, pane) {
@@ -153,12 +159,12 @@ async function renderCatalogView() {
       const list = box.querySelector('#secList');
       list.innerHTML = '';
       for (const sc of secs) {
-        const row = el(`<div class="list-row"><span class="grow">${sc.name}</span>
+        const row = el(`<div class="list-row"><span class="grow">${escapeHtml(sc.name)}</span>
           <button class="icon-btn danger" title="حذف" data-icon="trash"></button></div>`);
         injectIcons(row);
         row.querySelector('[title="حذف"]').onclick = async () => {
           if (!confirm(`حذف "${sc.name}" وكل طلبتها؟`)) return;
-          try { await apiCall('DELETE', `/api/admin/sections/${sc.id}`); refresh(); }
+          try { await apiCall('DELETE', `/api/admin/sections/${sc.id}`); refresh().catch(e => showToast(e.message, true)); }
           catch (e) { showToast(e.message, true); }
         };
         list.appendChild(row);
@@ -167,10 +173,10 @@ async function renderCatalogView() {
     box.querySelector('#addSec').onclick = async () => {
       const input = box.querySelector('#newSec');
       if (!input.value.trim()) return;
-      try { await apiCall('POST', '/api/admin/sections', { name: input.value, stage_id: stage.id }); input.value = ''; refresh(); }
+      try { await apiCall('POST', '/api/admin/sections', { name: input.value, stage_id: stage.id }); input.value = ''; refresh().catch(e => showToast(e.message, true)); }
       catch (e) { showToast(e.message, true); }
     };
-    refresh();
+    refresh().catch(e => showToast(e.message, true));
   }
 
   async function renderSubjects(stage, pane) {
@@ -198,19 +204,19 @@ async function renderCatalogView() {
       for (const sb of subs) {
         const modeLabel = sb.grade_mode === 'full' ? 'سجل كامل' : 'نهائية فقط';
         const row = el(`<div class="list-row">
-          <span class="grow">${sb.name} <span class="muted">(${modeLabel})</span></span>
+          <span class="grow">${escapeHtml(sb.name)} <span class="muted">(${escapeHtml(modeLabel)})</span></span>
           <button class="icon-btn" title="تبديل النوع" data-icon="edit"></button>
           <button class="icon-btn danger" title="حذف" data-icon="trash"></button>
         </div>`);
         injectIcons(row);
         row.querySelector('[title="تبديل النوع"]').onclick = async () => {
           const newMode = sb.grade_mode === 'full' ? 'final_only' : 'full';
-          try { await apiCall('PUT', `/api/admin/subjects/${sb.id}`, { name: sb.name, grade_mode: newMode, sort_order: sb.sort_order }); refresh(); }
+          try { await apiCall('PUT', `/api/admin/subjects/${sb.id}`, { name: sb.name, grade_mode: newMode, sort_order: sb.sort_order }); refresh().catch(e => showToast(e.message, true)); }
           catch (e) { showToast(e.message, true); }
         };
         row.querySelector('[title="حذف"]').onclick = async () => {
           if (!confirm(`حذف مادة "${sb.name}" ودرجاتها؟`)) return;
-          try { await apiCall('DELETE', `/api/admin/subjects/${sb.id}`); refresh(); }
+          try { await apiCall('DELETE', `/api/admin/subjects/${sb.id}`); refresh().catch(e => showToast(e.message, true)); }
           catch (e) { showToast(e.message, true); }
         };
         list.appendChild(row);
@@ -220,13 +226,13 @@ async function renderCatalogView() {
       const name = box.querySelector('#newSub');
       const mode = box.querySelector('#subMode').value;
       if (!name.value.trim()) return;
-      try { await apiCall('POST', '/api/admin/subjects', { name: name.value, stage_id: stage.id, grade_mode: mode }); name.value = ''; refresh(); showToast('تمت إضافة المادة'); }
+      try { await apiCall('POST', '/api/admin/subjects', { name: name.value, stage_id: stage.id, grade_mode: mode }); name.value = ''; refresh().catch(e => showToast(e.message, true)); showToast('تمت إضافة المادة'); }
       catch (e) { showToast(e.message, true); }
     };
-    refresh();
+    refresh().catch(e => showToast(e.message, true));
   }
 
-  loadDepts();
+  loadDepts().catch(e => showToast(e.message, true));
 }
 
 /* ===== router ===== */
@@ -244,8 +250,12 @@ document.querySelectorAll('.nav-btn[data-route]').forEach(b =>
   b.addEventListener('click', () => route(b.dataset.route)));
 
 document.getElementById('logoutBtn').addEventListener('click', async () => {
-  await apiCall('POST', '/api/admin/logout');
-  location.href = '/admin-login.html';
+  try {
+    await apiCall('POST', '/api/admin/logout');
+    location.href = '/admin-login.html';
+  } catch (e) {
+    showToast(e.message, true);
+  }
 });
 
 injectIcons();
