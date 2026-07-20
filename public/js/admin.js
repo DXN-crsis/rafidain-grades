@@ -36,10 +36,452 @@ function injectIcons(root = document) {
   root.querySelectorAll('[data-icon]').forEach(n => { n.innerHTML = window.icons[n.dataset.icon] || ''; });
 }
 
+// Converts western digits to Arabic-Indic digits for plain-language UI text
+// (counts, status sentences). Exam numbers themselves stay western-digit —
+// they must match exactly what a student types on the public login page.
+function arDigits(n) {
+  return String(n).replace(/[0-9]/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
+}
+
+// Rewrites a backend error into "what to do" phrasing instead of "what failed",
+// per the real-time-guidance requirement: never leave a teacher with a dead end.
+function friendlyError(msg) {
+  if (/موجود مسبقاً/.test(msg)) return `${msg} — جرّب اسماً آخر`;
+  return msg;
+}
+
+async function copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
 const view = document.getElementById('view');
 
 /* ===== state shared across views ===== */
 const state = { deptId: null, stageId: null, sectionId: null, subjectId: null };
+
+/* ===== quick view: one screen, four steps, no re-picking ===== */
+async function renderQuickView() {
+  view.innerHTML = '';
+  const card = el(`<div class="glass-card fade-in quick-view">
+    <h3 style="margin-bottom:0.6rem">الإضافة السريعة</h3>
+    <p style="color:var(--text-muted);margin-bottom:1rem">أضف كل شيء من هذه الشاشة — دون الحاجة للتنقل بين صفحات متعددة.</p>
+    <p class="status-line" data-tour="status-line"></p>
+
+    <section class="quick-step" data-tour="quick-where" id="qStepWhere">
+      <div class="step-head">
+        <span class="step-num">١</span>
+        <h4>أين؟</h4>
+        <span class="step-check" data-icon="check" hidden></span>
+      </div>
+      <p class="step-hint">اختر القسم ثم المرحلة ثم الشعبة. إذا لم تكن موجودة بعد، أنشئها من هنا مباشرة دون مغادرة الشاشة.</p>
+      <div class="step-waiting-msg" hidden></div>
+      <div class="step-body">
+        <div class="toolbar picker-row">
+          <div class="picker" data-picker="dept">
+            <select class="input" id="qDept"></select>
+            <div class="inline-add" id="qDeptAdd" hidden>
+              <input class="input" placeholder="اسم القسم الجديد">
+              <button class="btn btn-primary btn-sm" data-save>حفظ</button>
+              <button class="btn btn-ghost btn-sm" data-cancel>إلغاء</button>
+            </div>
+          </div>
+          <div class="picker" data-picker="stage">
+            <select class="input" id="qStage" disabled></select>
+            <div class="inline-add" id="qStageAdd" hidden>
+              <input class="input" placeholder="اسم المرحلة الجديدة">
+              <button class="btn btn-primary btn-sm" data-save>حفظ</button>
+              <button class="btn btn-ghost btn-sm" data-cancel>إلغاء</button>
+            </div>
+          </div>
+          <div class="picker" data-picker="section">
+            <select class="input" id="qSec" disabled></select>
+            <div class="inline-add" id="qSecAdd" hidden>
+              <input class="input" placeholder="اسم الشعبة الجديدة">
+              <button class="btn btn-primary btn-sm" data-save>حفظ</button>
+              <button class="btn btn-ghost btn-sm" data-cancel>إلغاء</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="quick-step" data-tour="quick-subjects" id="qStepSubjects">
+      <div class="step-head">
+        <span class="step-num">٢</span>
+        <h4>المواد</h4>
+        <span class="step-check" data-icon="check" hidden></span>
+      </div>
+      <p class="step-hint">هذه المواد تنطبق على كل طلبة هذه المرحلة — لا حاجة لإعادة إدخالها لكل طالب.</p>
+      <div class="step-waiting-msg" hidden></div>
+      <div class="step-body">
+        <div id="qSubList"></div>
+        <div class="toolbar">
+          <input class="input" id="qNewSub" placeholder="اسم المادة">
+          <select class="input" id="qSubMode">
+            <option value="final_only" selected>الدرجة النهائية فقط</option>
+            <option value="full">سجل درجات كامل</option>
+          </select>
+          <button class="btn btn-primary" id="qAddSub"><span data-icon="plus"></span>أضف مادة</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="quick-step" data-tour="quick-students" id="qStepStudents">
+      <div class="step-head">
+        <span class="step-num">٣</span>
+        <h4>الطلبة</h4>
+        <span class="step-check" data-icon="check" hidden></span>
+      </div>
+      <p class="step-hint">اكتب اسم الطالب الثلاثي واضغط Enter لإضافته. يحصل كل طالب على رقم امتحاني تلقائياً.</p>
+      <div class="step-waiting-msg" hidden></div>
+      <div class="step-body">
+        <div class="toolbar">
+          <input class="input" id="qNewStudent" placeholder="اسم الطالب الثلاثي">
+          <button class="btn btn-primary" id="qAddStudent"><span data-icon="plus"></span>إضافة</button>
+        </div>
+        <div id="qStudentConfirm"></div>
+        <div id="qStudentList"></div>
+      </div>
+    </section>
+
+    <section class="quick-step" data-tour="quick-grades" id="qStepGrades">
+      <div class="step-head">
+        <span class="step-num">٤</span>
+        <h4>الدرجات</h4>
+        <span class="step-check" data-icon="check" hidden></span>
+      </div>
+      <p class="step-hint">اضغط الزر لإدخال درجات طلبة هذه الشعبة — لن تحتاج لاختيار القسم أو المرحلة أو الشعبة مرة أخرى.</p>
+      <div class="step-waiting-msg" hidden></div>
+      <div class="step-body">
+        <button class="btn btn-primary" id="qGoGrades"><span data-icon="grid"></span>إدخال الدرجات</button>
+      </div>
+    </section>
+  </div>`);
+  view.appendChild(card);
+  injectIcons(card);
+
+  const statusEl = card.querySelector('.status-line');
+  const stepWhereEl = card.querySelector('#qStepWhere');
+  const stepSubjectsEl = card.querySelector('#qStepSubjects');
+  const stepStudentsEl = card.querySelector('#qStepStudents');
+  const stepGradesEl = card.querySelector('#qStepGrades');
+
+  let depts = [];
+  let stages = [];
+  let sections = [];
+  let subjects = [];
+  let students = [];
+
+  /* ---- generic "pick or create inline" select ---- */
+  function makePicker(select, addRow, { placeholder, fetchItems, createItem, onSelect }) {
+    const input = addRow.querySelector('input');
+    const saveBtn = addRow.querySelector('[data-save]');
+    const cancelBtn = addRow.querySelector('[data-cancel]');
+    let items = [];
+
+    function renderOptions(selectedId) {
+      select.innerHTML = '';
+      select.appendChild(el(`<option value="">${placeholder}</option>`));
+      for (const it of items) select.appendChild(el(`<option value="${it.id}">${escapeHtml(it.name)}</option>`));
+      select.appendChild(el('<option value="__new__">+ إضافة جديد</option>'));
+      select.value = selectedId != null ? String(selectedId) : '';
+    }
+
+    async function load(preferId) {
+      items = await fetchItems();
+      select.disabled = false;
+      let autoId = null;
+      if (preferId != null && items.some(i => i.id === preferId)) autoId = preferId;
+      else if (items.length === 1) autoId = items[0].id;
+      renderOptions(autoId);
+      onSelect(autoId, items);
+      return items;
+    }
+
+    function reset() {
+      items = [];
+      select.innerHTML = `<option value="">${placeholder}</option>`;
+      select.disabled = true;
+      addRow.hidden = true;
+      select.hidden = false;
+    }
+
+    select.addEventListener('change', () => {
+      if (select.value === '__new__') {
+        select.hidden = true;
+        addRow.hidden = false;
+        input.value = '';
+        input.focus();
+        return;
+      }
+      onSelect(select.value ? Number(select.value) : null, items);
+    });
+
+    saveBtn.addEventListener('click', async () => {
+      const name = input.value.trim();
+      if (!name) { showToast('اكتب اسماً أولاً', true); return; }
+      try {
+        const created = await createItem(name);
+        showToast('تمت الإضافة');
+        addRow.hidden = true;
+        select.hidden = false;
+        await load(created.id);
+      } catch (e) { showToast(friendlyError(e.message), true); }
+    });
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); saveBtn.click(); }
+    });
+    cancelBtn.addEventListener('click', () => {
+      addRow.hidden = true;
+      select.hidden = false;
+      renderOptions(null);
+    });
+
+    return { load, reset, get items() { return items; } };
+  }
+
+  function handleDeptSelected(id) {
+    state.deptId = id;
+    if (id) {
+      stagePicker.load(state.stageId).catch(e => showToast(e.message, true));
+    } else {
+      state.stageId = null; state.sectionId = null;
+      stagePicker.reset(); sectionPicker.reset();
+      clearStep2(); clearStep3();
+    }
+    refreshUI();
+  }
+
+  function handleStageSelected(id) {
+    state.stageId = id;
+    if (id) {
+      sectionPicker.load(state.sectionId).catch(e => showToast(e.message, true));
+    } else {
+      state.sectionId = null;
+      sectionPicker.reset();
+      clearStep2(); clearStep3();
+    }
+    refreshUI();
+  }
+
+  function handleSectionSelected(id) {
+    state.sectionId = id;
+    if (id) {
+      loadStep2().catch(e => showToast(e.message, true));
+      loadStep3().catch(e => showToast(e.message, true));
+    } else {
+      clearStep2(); clearStep3();
+    }
+    refreshUI();
+  }
+
+  const deptPicker = makePicker(card.querySelector('#qDept'), card.querySelector('#qDeptAdd'), {
+    placeholder: 'اختر القسم',
+    fetchItems: () => apiCall('GET', '/api/admin/departments').then(r => { depts = r; return r; }),
+    createItem: name => apiCall('POST', '/api/admin/departments', { name }),
+    onSelect: handleDeptSelected,
+  });
+  const stagePicker = makePicker(card.querySelector('#qStage'), card.querySelector('#qStageAdd'), {
+    placeholder: 'اختر المرحلة',
+    fetchItems: () => apiCall('GET', `/api/admin/stages?department_id=${state.deptId}`).then(r => { stages = r; return r; }),
+    createItem: name => apiCall('POST', '/api/admin/stages', { name, department_id: state.deptId }),
+    onSelect: handleStageSelected,
+  });
+  const sectionPicker = makePicker(card.querySelector('#qSec'), card.querySelector('#qSecAdd'), {
+    placeholder: 'اختر الشعبة',
+    fetchItems: () => apiCall('GET', `/api/admin/sections?stage_id=${state.stageId}`).then(r => { sections = r; return r; }),
+    createItem: name => apiCall('POST', '/api/admin/sections', { name, stage_id: state.stageId }),
+    onSelect: handleSectionSelected,
+  });
+
+  /* ---- step 2: subjects ---- */
+  function clearStep2() {
+    subjects = [];
+    const list = stepSubjectsEl.querySelector('#qSubList');
+    if (list) list.innerHTML = '';
+  }
+
+  function renderSubList() {
+    const list = stepSubjectsEl.querySelector('#qSubList');
+    list.innerHTML = '';
+    if (subjects.length === 0) {
+      list.innerHTML = '<p class="muted">لا توجد مواد لهذه المرحلة بعد.</p>';
+      return;
+    }
+    for (const sb of subjects) {
+      const modeLabel = sb.grade_mode === 'full' ? 'سجل كامل' : 'الدرجة النهائية فقط';
+      const row = el(`<div class="list-row"><span class="grow">${escapeHtml(sb.name)} <span class="muted">(${escapeHtml(modeLabel)})</span></span></div>`);
+      list.appendChild(row);
+    }
+  }
+
+  async function loadStep2() {
+    subjects = await apiCall('GET', `/api/admin/subjects?stage_id=${state.stageId}`);
+    renderSubList();
+    refreshUI();
+  }
+
+  card.querySelector('#qAddSub').onclick = async () => {
+    const nameInput = card.querySelector('#qNewSub');
+    const modeSel = card.querySelector('#qSubMode');
+    const name = nameInput.value.trim();
+    if (!name) { showToast('اكتب اسم المادة أولاً', true); return; }
+    if (!state.stageId) { showToast('اختر المرحلة أولاً', true); return; }
+    try {
+      await apiCall('POST', '/api/admin/subjects', { name, stage_id: state.stageId, grade_mode: modeSel.value });
+      nameInput.value = '';
+      showToast('تمت إضافة المادة');
+      await loadStep2();
+    } catch (e) { showToast(friendlyError(e.message), true); }
+  };
+
+  /* ---- step 3: students ---- */
+  function clearStep3() {
+    students = [];
+    const list = stepStudentsEl.querySelector('#qStudentList');
+    if (list) list.innerHTML = '';
+    const confirmBox = stepStudentsEl.querySelector('#qStudentConfirm');
+    if (confirmBox) confirmBox.innerHTML = '';
+  }
+
+  function renderStudentList() {
+    const list = stepStudentsEl.querySelector('#qStudentList');
+    list.innerHTML = '';
+    if (students.length === 0) {
+      list.innerHTML = '<p class="muted">لم يُضف أي طالب بعد.</p>';
+      return;
+    }
+    for (const st of students) {
+      const row = el(`<div class="list-row">
+        <span class="grow">${escapeHtml(st.name)} <span class="muted" style="direction:ltr">${escapeHtml(st.exam_number)}</span></span>
+        <button class="icon-btn" title="نسخ الرقم الامتحاني" data-icon="copy"></button>
+      </div>`);
+      injectIcons(row);
+      row.querySelector('[title="نسخ الرقم الامتحاني"]').onclick = async () => {
+        const ok = await copyToClipboard(st.exam_number);
+        showToast(ok ? 'تم نسخ الرقم الامتحاني' : 'تعذر النسخ — انسخه يدوياً', !ok);
+      };
+      list.appendChild(row);
+    }
+  }
+
+  async function loadStep3() {
+    students = await apiCall('GET', `/api/admin/students?section_id=${state.sectionId}`);
+    renderStudentList();
+    refreshUI();
+  }
+
+  async function addStudent() {
+    const input = card.querySelector('#qNewStudent');
+    const name = input.value.trim();
+    if (!name) { showToast('اكتب اسم الطالب أولاً', true); return; }
+    if (!state.sectionId) { showToast('اختر الشعبة أولاً', true); return; }
+    try {
+      const created = await apiCall('POST', '/api/admin/students', { name, section_id: state.sectionId });
+      input.value = '';
+      input.focus();
+      const confirmBox = card.querySelector('#qStudentConfirm');
+      confirmBox.innerHTML = '';
+      const box = el(`<div class="inline-confirm">
+        تمت إضافة الطالب. رقمه الامتحاني: <b style="direction:ltr">${escapeHtml(created.exam_number)}</b>
+        <button class="icon-btn" title="نسخ الرقم الامتحاني" data-icon="copy"></button>
+      </div>`);
+      injectIcons(box);
+      box.querySelector('button').onclick = async () => {
+        const ok = await copyToClipboard(created.exam_number);
+        showToast(ok ? 'تم نسخ الرقم الامتحاني' : 'تعذر النسخ — انسخه يدوياً', !ok);
+      };
+      confirmBox.appendChild(box);
+      await loadStep3();
+    } catch (e) { showToast(friendlyError(e.message), true); }
+  }
+  card.querySelector('#qAddStudent').onclick = addStudent;
+  card.querySelector('#qNewStudent').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); addStudent(); }
+  });
+
+  /* ---- step 4: go to grades, carrying state forward ---- */
+  card.querySelector('#qGoGrades').onclick = () => route('grades');
+
+  /* ---- step visual states + always-on status line (R9) ---- */
+  function setStepState(stepEl, state_, waitReason) {
+    stepEl.dataset.state = state_;
+    const waitMsg = stepEl.querySelector('.step-waiting-msg');
+    const body = stepEl.querySelector('.step-body');
+    const check = stepEl.querySelector('.step-check');
+    if (state_ === 'waiting') {
+      waitMsg.textContent = waitReason || '';
+      waitMsg.hidden = false;
+      body.hidden = true;
+      check.hidden = true;
+    } else {
+      waitMsg.hidden = true;
+      body.hidden = false;
+      check.hidden = state_ !== 'done';
+    }
+  }
+
+  function updateStepStates() {
+    const step1Done = !!(state.deptId && state.stageId && state.sectionId);
+    setStepState(stepWhereEl, step1Done ? 'done' : 'active');
+
+    if (!state.stageId) {
+      setStepState(stepSubjectsEl, 'waiting', 'اختر القسم والمرحلة أولاً');
+    } else {
+      setStepState(stepSubjectsEl, subjects.length > 0 ? 'done' : 'active');
+    }
+
+    if (!state.sectionId) {
+      setStepState(stepStudentsEl, 'waiting', 'اختر الشعبة أولاً');
+    } else {
+      setStepState(stepStudentsEl, students.length > 0 ? 'done' : 'active');
+    }
+
+    if (!state.sectionId) {
+      setStepState(stepGradesEl, 'waiting', 'اختر الشعبة أولاً');
+    } else if (subjects.length === 0) {
+      setStepState(stepGradesEl, 'waiting', 'أضف مادة واحدة على الأقل في الخطوة ٢');
+    } else {
+      setStepState(stepGradesEl, 'active');
+    }
+  }
+
+  function computeStatus() {
+    if (!state.deptId) return 'اختر القسم أولاً';
+    const dept = depts.find(d => d.id === state.deptId);
+    if (!state.stageId) return `اخترت: ${dept ? dept.name : ''}. الآن اختر المرحلة.`;
+    const stage = stages.find(s => s.id === state.stageId);
+    if (!state.sectionId) return `اخترت: ${stage ? stage.name : ''}. الآن اختر الشعبة.`;
+    if (subjects.length === 0) return 'القسم والمرحلة والشعبة جاهزة. الآن أضف مادة واحدة على الأقل في الخطوة ٢.';
+    if (students.length === 0) return 'جاهز. اكتب اسم الطالب واضغط Enter.';
+    return `جاهز — ${arDigits(students.length)} طالب مسجل. اضغط "إدخال الدرجات" في الخطوة ٤ أو أضف طالباً آخر.`;
+  }
+
+  function refreshUI() {
+    updateStepStates();
+    statusEl.textContent = computeStatus();
+  }
+
+  refreshUI();
+  deptPicker.load(state.deptId).catch(e => showToast(e.message, true));
+}
 
 /* ===== catalog view: departments -> stages -> sections + subjects ===== */
 async function renderCatalogView() {
@@ -350,10 +792,16 @@ const GRADE_COLS = [
   ['final_grade', 'الدرجة النهائية'],
 ];
 
+// Set true while the grades grid has unsaved edits; checked by route() and
+// beforeunload so a teacher is warned before losing work — a real data-loss
+// bug once already (see plan v2 Task 4).
+let gradesDirty = false;
+
 async function renderGradesView() {
   view.innerHTML = '';
   const card = el(`<div class="glass-card fade-in">
-    <h3 style="margin-bottom:1rem">إدخال الدرجات</h3>
+    <h3 style="margin-bottom:0.6rem">إدخال الدرجات</h3>
+    <p class="status-line" id="gStatusLine"></p>
     <div class="toolbar">
       <select class="input" id="gDept"><option value="">القسم</option></select>
       <select class="input" id="gStage" disabled><option value="">المرحلة</option></select>
@@ -369,60 +817,132 @@ async function renderGradesView() {
   const gStage = card.querySelector('#gStage');
   const gSec = card.querySelector('#gSec');
   const gSub = card.querySelector('#gSub');
+  const statusLine = card.querySelector('#gStatusLine');
+  const gridWrap = card.querySelector('#gridWrap');
   let subjects = [];
+  let currentMode = null;
+  let gridCounts = { total: 0, filled: 0 };
+  gradesDirty = false;
+
+  function selectedText(select) {
+    const opt = select.options[select.selectedIndex];
+    return opt ? opt.textContent : '';
+  }
+
+  function updateStatus() {
+    if (gradesDirty) { statusLine.textContent = 'فيه تغييرات غير محفوظة — اضغط حفظ'; return; }
+    if (!gDept.value) { statusLine.textContent = 'اختر القسم أولاً'; return; }
+    if (!gStage.value) { statusLine.textContent = `اخترت: ${selectedText(gDept)}. الآن اختر المرحلة.`; return; }
+    if (!gSec.value) { statusLine.textContent = `اخترت: ${selectedText(gStage)}. الآن اختر الشعبة.`; return; }
+    if (!gSub.value) { statusLine.textContent = 'اخترت الشعبة. الآن اختر المادة.'; return; }
+    if (currentMode === 'final_only') {
+      const remaining = gridCounts.total - gridCounts.filled;
+      statusLine.textContent = remaining === 0
+        ? 'تم إدخال درجات جميع الطلبة. اضغط حفظ.'
+        : `أدخل الدرجة النهائية لكل طالب، ثم اضغط حفظ — بقي ${arDigits(remaining)} من ${arDigits(gridCounts.total)}.`;
+      return;
+    }
+    statusLine.textContent = 'أدخل الدرجات ثم اضغط حفظ.';
+  }
+  updateStatus();
+
+  function confirmDiscard() {
+    if (!gradesDirty) return true;
+    const ok = confirm('فيه تغييرات غير محفوظة في الدرجات. هل تريد المتابعة دون حفظ؟');
+    if (ok) gradesDirty = false;
+    return ok;
+  }
 
   for (const d of await apiCall('GET', '/api/admin/departments')) {
     gDept.appendChild(el(`<option value="${d.id}">${escapeHtml(d.name)}</option>`));
   }
-  gDept.onchange = async () => {
+
+  async function loadStages() {
     gStage.innerHTML = '<option value="">المرحلة</option>'; gSec.innerHTML = '<option value="">الشعبة</option>'; gSub.innerHTML = '<option value="">المادة</option>';
-    gSec.disabled = gSub.disabled = true; card.querySelector('#gridWrap').innerHTML = '';
-    if (!gDept.value) { gStage.disabled = true; return; }
-    try {
-      for (const s of await apiCall('GET', `/api/admin/stages?department_id=${gDept.value}`)) {
-        gStage.appendChild(el(`<option value="${s.id}">${escapeHtml(s.name)}</option>`));
-      }
-      gStage.disabled = false;
-    } catch (e) { showToast(e.message, true); }
-  };
-  gStage.onchange = async () => {
+    gSec.disabled = gSub.disabled = true; gridWrap.innerHTML = '';
+    if (!gDept.value) { gStage.disabled = true; updateStatus(); return; }
+    for (const s of await apiCall('GET', `/api/admin/stages?department_id=${gDept.value}`)) {
+      gStage.appendChild(el(`<option value="${s.id}">${escapeHtml(s.name)}</option>`));
+    }
+    gStage.disabled = false;
+    updateStatus();
+  }
+
+  async function loadSections() {
     gSec.innerHTML = '<option value="">الشعبة</option>'; gSub.innerHTML = '<option value="">المادة</option>';
-    gSub.disabled = true; card.querySelector('#gridWrap').innerHTML = '';
-    if (!gStage.value) { gSec.disabled = true; return; }
-    try {
-      for (const s of await apiCall('GET', `/api/admin/sections?stage_id=${gStage.value}`)) {
-        gSec.appendChild(el(`<option value="${s.id}">${escapeHtml(s.name)}</option>`));
-      }
-      subjects = await apiCall('GET', `/api/admin/subjects?stage_id=${gStage.value}`);
-      gSec.disabled = false;
-    } catch (e) { showToast(e.message, true); }
-  };
-  gSec.onchange = () => {
+    gSub.disabled = true; gridWrap.innerHTML = '';
+    if (!gStage.value) { gSec.disabled = true; updateStatus(); return; }
+    for (const s of await apiCall('GET', `/api/admin/sections?stage_id=${gStage.value}`)) {
+      gSec.appendChild(el(`<option value="${s.id}">${escapeHtml(s.name)}</option>`));
+    }
+    subjects = await apiCall('GET', `/api/admin/subjects?stage_id=${gStage.value}`);
+    gSec.disabled = false;
+    updateStatus();
+  }
+
+  function loadSubjectsIntoSelect() {
     gSub.innerHTML = '<option value="">المادة</option>';
-    card.querySelector('#gridWrap').innerHTML = '';
-    if (!gSec.value) { gSub.disabled = true; return; }
+    gridWrap.innerHTML = '';
+    if (!gSec.value) { gSub.disabled = true; updateStatus(); return; }
     for (const s of subjects) {
       gSub.appendChild(el(`<option value="${s.id}">${escapeHtml(s.name)}</option>`));
     }
     gSub.disabled = false;
+    if (subjects.length === 1) {
+      gSub.value = String(subjects[0].id);
+      gSub.dataset.prev = gSub.value;
+      loadGrid().catch(e => showToast(e.message, true));
+    } else {
+      updateStatus();
+    }
+  }
+
+  gDept.onchange = async () => {
+    if (!confirmDiscard()) { gDept.value = gDept.dataset.prev || ''; return; }
+    gDept.dataset.prev = gDept.value;
+    try { await loadStages(); } catch (e) { showToast(e.message, true); }
   };
-  gSub.onchange = () => { if (gSub.value) loadGrid().catch(e => showToast(e.message, true)); };
+  gStage.onchange = async () => {
+    if (!confirmDiscard()) { gStage.value = gStage.dataset.prev || ''; return; }
+    gStage.dataset.prev = gStage.value;
+    try { await loadSections(); } catch (e) { showToast(e.message, true); }
+  };
+  gSec.onchange = () => {
+    if (!confirmDiscard()) { gSec.value = gSec.dataset.prev || ''; return; }
+    gSec.dataset.prev = gSec.value;
+    loadSubjectsIntoSelect();
+  };
+  gSub.onchange = () => {
+    if (!confirmDiscard()) { gSub.value = gSub.dataset.prev || ''; return; }
+    gSub.dataset.prev = gSub.value;
+    if (gSub.value) loadGrid().catch(e => showToast(e.message, true));
+    else { gridWrap.innerHTML = ''; updateStatus(); }
+  };
 
   async function loadGrid() {
+    gradesDirty = false;
     const subject = subjects.find(s => s.id === Number(gSub.value));
-    const cols = subject.grade_mode === 'final_only'
-      ? GRADE_COLS.filter(([k]) => k === 'final_grade')
-      : GRADE_COLS;
+    currentMode = subject.grade_mode;
     const rows = await apiCall('GET', `/api/admin/grades?section_id=${gSec.value}&subject_id=${gSub.value}`);
-    const wrap = card.querySelector('#gridWrap');
-    wrap.innerHTML = '';
-    if (rows.length === 0) { wrap.innerHTML = '<p style="color:var(--text-muted)">لا يوجد طلبة في هذه الشعبة</p>'; return; }
+    gridWrap.innerHTML = '';
+    if (rows.length === 0) { gridWrap.innerHTML = '<p style="color:var(--text-muted)">لا يوجد طلبة في هذه الشعبة</p>'; updateStatus(); return; }
 
-    const table = el(`<div class="table-wrap"><table class="grades">
-      <thead><tr><th>الطالب</th>${cols.map(([, label]) => `<th>${escapeHtml(label)}</th>`).join('')}</tr></thead>
-      <tbody></tbody>
-    </table></div>`);
-    const tbody = table.querySelector('tbody');
+    if (currentMode === 'final_only') renderFinalOnlyGrid(rows);
+    else renderFullGrid(rows);
+    updateStatus();
+  }
+
+  /* ---- full grid: unchanged six-column behavior (auto-compute, keyboard nav) ---- */
+  function renderFullGrid(rows) {
+    const cols = GRADE_COLS;
+    const box = el(`<div>
+      <p class="grade-rule-hint">كل الدرجات من ٠ إلى ١٠٠</p>
+      <div class="table-wrap"><table class="grades">
+        <thead><tr><th>الطالب</th>${cols.map(([, label]) => `<th>${escapeHtml(label)}</th>`).join('')}</tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>`);
+    const tbody = box.querySelector('tbody');
 
     for (const r of rows) {
       const tr = el(`<tr data-student="${r.student_id}">
@@ -434,19 +954,21 @@ async function renderGradesView() {
       </tr>`);
       tbody.appendChild(tr);
     }
-    wrap.appendChild(table);
+    gridWrap.appendChild(box);
 
     const saveBtn = el(`<button class="btn btn-primary" style="margin-top:1rem"><span data-icon="save"></span>حفظ الدرجات</button>`);
     injectIcons(saveBtn);
-    wrap.appendChild(saveBtn);
+    gridWrap.appendChild(saveBtn);
 
     // numeric guard + auto-compute + keyboard navigation
-    wrap.querySelectorAll('input[data-field]').forEach(input => {
+    box.querySelectorAll('input[data-field]').forEach(input => {
       input.addEventListener('input', () => {
         input.value = input.value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
         if (parseFloat(input.value) > 100) input.value = '100';
         if (['annual_effort', 'final_grade'].includes(input.dataset.field)) input.dataset.manual = '1';
         autoCompute(input.closest('tr'));
+        gradesDirty = true;
+        updateStatus();
       });
       input.addEventListener('keydown', e => {
         if (!['Enter', 'ArrowDown', 'ArrowUp'].includes(e.key)) return;
@@ -483,9 +1005,117 @@ async function renderGradesView() {
       });
       try {
         const r = await apiCall('PUT', '/api/admin/grades', { subject_id: Number(gSub.value), entries });
+        gradesDirty = false;
         showToast(`تم حفظ درجات ${r.saved} طالب`);
+        updateStatus();
       } catch (e) { showToast(e.message, true); }
     };
+  }
+
+  /* ---- final-only grid: one number box per student — the easiest path, per R5 ----
+     IMPORTANT: entries sent to PUT /api/admin/grades only ever carry the
+     `final_grade` key. The backend only overwrites fields present in the
+     payload (see gradesRouter's has_<field> pattern), so the five detail
+     columns for subjects that have them are never nulled out by a save here. */
+  function renderFinalOnlyGrid(rows) {
+    const wrap = el(`<div>
+      <p class="grades-count" id="gCount"></p>
+      <div class="fo-list"></div>
+      <button class="btn btn-primary" id="gFoSave"><span data-icon="save"></span>حفظ</button>
+    </div>`);
+    injectIcons(wrap);
+    const list = wrap.querySelector('.fo-list');
+    const countEl = wrap.querySelector('#gCount');
+
+    function updateCount() {
+      const inputs = [...list.querySelectorAll('input.fo-grade')];
+      gridCounts.total = inputs.length;
+      gridCounts.filled = inputs.filter(i => i.value !== '').length;
+      countEl.textContent = `تم إدخال ${arDigits(gridCounts.filled)} من ${arDigits(gridCounts.total)}`;
+    }
+
+    for (const r of rows) {
+      // Pre-loaded non-null final_grade values carry data-manual="1" so a
+      // later switch back to 'full' mode never lets auto-compute silently
+      // overwrite what a teacher already saved here.
+      const isManual = r.final_grade !== null && r.final_grade !== undefined && r.final_grade !== '';
+      const row = el(`<div class="fo-row" data-student="${r.student_id}">
+        <span class="fo-name">${escapeHtml(r.student_name)} <span class="muted" style="direction:ltr">${escapeHtml(r.exam_number)}</span></span>
+        <span class="fo-grade-wrap">
+          <input class="input fo-grade" data-field="final_grade" inputmode="numeric" value="${r.final_grade ?? ''}"${isManual ? ' data-manual="1"' : ''}>
+          <small>من ٠ إلى ١٠٠</small>
+        </span>
+      </div>`);
+      list.appendChild(row);
+    }
+    gridWrap.appendChild(wrap);
+    updateCount();
+
+    list.querySelectorAll('input.fo-grade').forEach(input => {
+      input.addEventListener('input', () => {
+        input.value = input.value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
+        if (parseFloat(input.value) > 100) input.value = '100';
+        input.dataset.manual = '1';
+        gradesDirty = true;
+        updateCount();
+        updateStatus();
+      });
+      input.addEventListener('keydown', e => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        const row = input.closest('.fo-row');
+        const next = row.nextElementSibling;
+        if (next) {
+          const ni = next.querySelector('input.fo-grade');
+          if (ni) { ni.focus(); ni.select(); }
+        } else {
+          input.blur();
+        }
+      });
+    });
+
+    wrap.querySelector('#gFoSave').onclick = async () => {
+      // Only `final_grade` is ever included per entry — the five detail
+      // columns are omitted entirely, not sent as null, so the backend's
+      // has_<field> guard leaves any existing detail values untouched.
+      const entries = [...list.querySelectorAll('.fo-row')].map(row => {
+        const input = row.querySelector('input.fo-grade');
+        return {
+          student_id: Number(row.dataset.student),
+          final_grade: input.value !== '' ? parseFloat(input.value) : null,
+        };
+      });
+      try {
+        const r = await apiCall('PUT', '/api/admin/grades', { subject_id: Number(gSub.value), entries });
+        gradesDirty = false;
+        showToast(`تم حفظ درجات ${r.saved} طالب`);
+        updateStatus();
+      } catch (e) { showToast(e.message, true); }
+    };
+  }
+
+  /* ---- carry department/stage/section forward from the quick view or a
+     previous grades session — a teacher must never re-pick them here ---- */
+  if (state.deptId) {
+    gDept.value = String(state.deptId);
+    if (gDept.value === String(state.deptId)) {
+      gDept.dataset.prev = gDept.value;
+      await loadStages().catch(e => showToast(e.message, true));
+      if (state.stageId) {
+        gStage.value = String(state.stageId);
+        if (gStage.value === String(state.stageId)) {
+          gStage.dataset.prev = gStage.value;
+          await loadSections().catch(e => showToast(e.message, true));
+          if (state.sectionId) {
+            gSec.value = String(state.sectionId);
+            if (gSec.value === String(state.sectionId)) {
+              gSec.dataset.prev = gSec.value;
+              loadSubjectsIntoSelect();
+            }
+          }
+        }
+      }
+    }
   }
 }
 
@@ -526,15 +1156,20 @@ async function renderPasswordView() {
 }
 
 /* ===== router ===== */
-const routes = { catalog: renderCatalogView };
+const routes = { quick: renderQuickView };
+routes.catalog = renderCatalogView;
 routes.students = renderStudentsView;
 routes.grades = renderGradesView;
 routes.password = renderPasswordView;
 
 function route(name) {
+  if (gradesDirty) {
+    if (!confirm('فيه تغييرات غير محفوظة في الدرجات. هل تريد المغادرة دون حفظ؟')) return;
+    gradesDirty = false;
+  }
   document.querySelectorAll('.nav-btn[data-route]').forEach(b =>
     b.classList.toggle('active', b.dataset.route === name));
-  Promise.resolve((routes[name] || renderCatalogView)())
+  Promise.resolve((routes[name] || renderQuickView)())
     .catch(e => showToast(e.message, true));
 }
 
@@ -542,6 +1177,7 @@ document.querySelectorAll('.nav-btn[data-route]').forEach(b =>
   b.addEventListener('click', () => route(b.dataset.route)));
 
 document.getElementById('logoutBtn').addEventListener('click', async () => {
+  if (gradesDirty && !confirm('فيه تغييرات غير محفوظة في الدرجات. هل تريد تسجيل الخروج دون حفظ؟')) return;
   try {
     await apiCall('POST', '/api/admin/logout');
     location.href = '/admin-login.html';
@@ -550,5 +1186,11 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
   }
 });
 
+window.addEventListener('beforeunload', (e) => {
+  if (!gradesDirty) return;
+  e.preventDefault();
+  e.returnValue = '';
+});
+
 injectIcons();
-apiCall('GET', '/api/admin/me').then(() => route('catalog')).catch(() => {});
+apiCall('GET', '/api/admin/me').then(() => route('quick')).catch(() => {});
