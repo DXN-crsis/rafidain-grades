@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>دليل الاستخدام — إعدادية الرافدين المهنية</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="/assets/logo.png">
+  <style>
+    .page { max-width: 760px; margin: 0 auto; padding: var(--space-5) var(--space-4) var(--space-8); }
+
+    .head-card { text-align: center; margin-bottom: var(--space-5); }
+    .head-card .logo-circle { width: 96px; height: 96px; }
+    .head-card h1 { font-size: var(--fs-xl); margin-top: var(--space-3); }
+    .head-card p { margin-top: var(--space-1); }
+    .back-links { display: flex; justify-content: center; gap: var(--space-4); flex-wrap: wrap; margin-top: var(--space-4); }
+    .back-links a {
+      color: var(--green); text-decoration: none; font-weight: 700;
+      display: inline-flex; align-items: center; gap: 0.4rem;
+    }
+    .back-links a:hover { text-decoration: underline; }
+    .back-links svg { width: 18px; height: 18px; }
+
+    /* فهرس سريع */
+    .toc {
+      display: flex; flex-wrap: wrap; gap: var(--space-2);
+      margin-bottom: var(--space-6);
+    }
+    .toc a {
+      display: block; text-decoration: none; font-weight: 700;
+      font-size: var(--fs-sm); color: var(--green);
+      background: var(--green-light); border-radius: 999px;
+      padding: 0.5rem 1rem; min-height: 44px; display: inline-flex; align-items: center;
+      transition: transform 0.15s var(--ease);
+    }
+    .toc a:hover { transform: translateY(-1px); }
+
+    section.topic { margin-bottom: var(--space-5); }
+    section.topic h2 {
+      font-size: var(--fs-lg); display: flex; align-items: center; gap: var(--space-2);
+      margin-bottom: var(--space-2);
+    }
+    section.topic h2 svg { width: 22px; height: 22px; color: var(--green); flex-shrink: 0; }
+    section.topic > .intro { margin-bottom: var(--space-3); }
+
+    ol.steps { padding-inline-start: 1.4rem; display: flex; flex-direction: column; gap: var(--space-3); }
+    ol.steps li { padding-inline-start: var(--space-2); }
+    ol.steps li::marker { font-weight: 800; color: var(--green); }
+
+    /* شارة صغيرة لاسم زر أو حقل كما يظهر على الشاشة */
+    .ui {
+      display: inline-block; background: var(--input-bg); border: 1px solid var(--card-border);
+      border-radius: 8px; padding: 0.05rem 0.55rem; font-weight: 700; white-space: nowrap;
+    }
+
+    /* صندوق تنبيه */
+    .warn {
+      display: flex; gap: var(--space-3); align-items: flex-start;
+      background: rgba(192, 57, 43, 0.08); border: 1px solid rgba(192, 57, 43, 0.25);
+      border-radius: 12px; padding: var(--space-3) var(--space-4); margin-top: var(--space-3);
+    }
+    .warn svg { width: 22px; height: 22px; color: var(--danger); flex-shrink: 0; margin-top: 0.15rem; }
+    .warn strong { color: var(--danger); }
+
+    /* صندوق ملاحظة هادئة */
+    .note {
+      background: var(--green-light); border-radius: 12px;
+      padding: var(--space-3) var(--space-4); margin-top: var(--space-3);
+      font-size: var(--fs-sm);
+    }
+
+    /* مقارنة نوعي المادة */
+    .compare { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-top: var(--space-3); }
+    .compare .box {
+      border: 1px solid var(--card-border); border-radius: 12px; padding: var(--space-4);
+      background: var(--input-bg);
+    }
+    .compare .box h3 { font-size: var(--fs-base); margin-bottom: var(--space-2); }
+    .compare .box.recommended { border-color: var(--green); box-shadow: 0 0 0 2px rgba(13,122,63,0.12) inset; }
+    .compare .box p { font-size: var(--fs-sm); }
+    @media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }
+
+    /* أسئلة وأخطاء شائعة */
+    .qa { display: flex; flex-direction: column; gap: var(--space-4); }
+    .qa .item { border-bottom: 1px solid var(--card-border); padding-bottom: var(--space-4); }
+    .qa .item:last-child { border-bottom: none; padding-bottom: 0; }
+    .qa .problem { font-weight: 800; margin-bottom: var(--space-2); display: flex; gap: var(--space-2); }
+    .qa .problem svg { width: 18px; height: 18px; color: var(--danger); flex-shrink: 0; margin-top: 0.2rem; }
+    .qa .solution { display: flex; gap: var(--space-2); color: var(--text); }
+    .qa .solution svg { width: 18px; height: 18px; color: var(--green); flex-shrink: 0; margin-top: 0.2rem; }
+
+    footer.page-footer { text-align: center; color: var(--text-muted); font-size: var(--fs-xs); padding: var(--space-5) 0; }
+  </style>
+</head>
+<body>
+  <button class="theme-toggle" data-theme-icon onclick="toggleTheme()" aria-label="تبديل الوضع الداكن"></button>
+
+  <div class="page">
+    <div class="glass-card head-card fade-in">
+      <div class="logo-circle"><img src="/assets/logo.png" alt="شعار إعدادية الرافدين المهنية"></div>
+      <h1>دليل استخدام المنصة</h1>
+      <p>إعدادية الرافدين المهنية — منصة عرض النتائج</p>
+      <div class="back-links">
+        <a href="/admin.html"><span data-icon="layers"></span>العودة إلى لوحة الإدارة</a>
+        <a href="/"><span data-icon="search"></span>العودة إلى الصفحة الرئيسية</a>
+      </div>
+    </div>
+
+    <nav class="toc glass-card fade-in delay-1" aria-label="فهرس الدليل">
+      <a href="#login">دخول الإدارة</a>
+      <a href="#catalog">الأقسام والمراحل والشعب</a>
+      <a href="#subjects">المواد</a>
+      <a href="#students">إضافة طالب</a>
+      <a href="#grades">إدخال الدرجات</a>
+      <a href="#student-view">شاشة الطالب</a>
+      <a href="#password">تغيير كلمة المرور</a>
+      <a href="#errors">أخطاء شائعة وحلولها</a>
+    </nav>
+
+    <div class="glass-card fade-in delay-2">
+
+      <section class="topic" id="login">
+        <h2><span data-icon="user"></span>كيف أدخل إلى لوحة الإدارة؟</h2>
+        <ol class="steps">
+          <li>افتح الصفحة الرئيسية للمنصة من متصفح الجهاز (حاسوب أو جوال أو آيباد).</li>
+          <li>في أسفل الصفحة اضغط على رابط <span class="ui">دخول الإدارة</span>.</li>
+          <li>اكتب اسم المستخدم وكلمة المرور، ثم اضغط <span class="ui">تسجيل الدخول</span>.</li>
+          <li>عند أول استخدام للمنصة، ما لم تُغيَّر من قبل: اسم المستخدم <span class="ui">admin</span> وكلمة المرور <span class="ui">rafidain@2026</span>.</li>
+          <li>بعد الدخول تظهر لوحة تحكم فيها قائمة جانبية: <span class="ui">الأقسام والمراحل</span>، <span class="ui">الطلبة</span>، <span class="ui">الدرجات</span>، <span class="ui">كلمة المرور</span>، وزر <span class="ui">تسجيل الخروج</span>.</li>
+        </ol>
+        <div class="warn">
+          <span data-icon="alert"></span>
+          <div><strong>مهم:</strong> غيّر كلمة المرور الافتراضية فور أول دخول (انظر قسم «كيف أغيّر كلمة المرور؟» أدناه)، لأن أي شخص يعرف الكلمة الافتراضية يستطيع الدخول إلى لوحة الإدارة.</div>
+        </div>
+      </section>
+
+      <section class="topic" id="catalog">
+        <h2><span data-icon="layers"></span>كيف أضيف قسماً ومرحلة وشعبة؟</h2>
+        <p class="intro">ترتيب المنصة من الأكبر إلى الأصغر: <b>القسم</b> (مثل: الحاسوب) يحوي عدة <b>مراحل</b> (مثل: المرحلة الثالثة)، وكل مرحلة تحوي عدة <b>شعب</b> (مثل: شعبة أ). كل طالب ينتمي إلى شعبة واحدة فقط.</p>
+        <ol class="steps">
+          <li>من القائمة الجانبية اضغط <span class="ui">الأقسام والمراحل</span>.</li>
+          <li>لإضافة قسم جديد: اكتب اسمه في الصندوق (مثل: الحاسوب) واضغط <span class="ui">إضافة قسم</span>.</li>
+          <li>اضغط على اسم القسم في القائمة لفتحه ورؤية مراحله.</li>
+          <li>لإضافة مرحلة: اكتب اسمها (مثل: المرحلة الثالثة) واضغط <span class="ui">إضافة مرحلة</span>.</li>
+          <li>أمام كل مرحلة زران: <span class="ui">الشعب</span> و<span class="ui">المواد</span>. اضغط <span class="ui">الشعب</span>.</li>
+          <li>اكتب اسم الشعبة (مثل: شعبة أ) واضغط <span class="ui">إضافة شعبة</span>.</li>
+        </ol>
+        <div class="note">إذا حاولت إضافة اسم موجود من قبل بالضبط في نفس المكان، يرفض النظام ويطلب اسماً مختلفاً — هذا أمر طبيعي وليس عطلاً في الجهاز.</div>
+      </section>
+
+      <section class="topic" id="subjects">
+        <h2><span data-icon="book"></span>كيف أضيف المواد؟</h2>
+        <p class="intro">المواد التي تضيفها لمرحلة معيّنة تُطبَّق تلقائياً على جميع طلبة هذه المرحلة — لا حاجة لإعادة إضافتها لكل طالب بمفرده.</p>
+        <ol class="steps">
+          <li>من صفحة <span class="ui">الأقسام والمراحل</span>، اضغط زر <span class="ui">المواد</span> أمام المرحلة المطلوبة.</li>
+          <li>اكتب اسم المادة (مثل: الرياضيات).</li>
+          <li>اختر نوع الدرجة قبل الضغط على <span class="ui">إضافة مادة</span> — انظر الفرق بينهما أدناه.</li>
+          <li>اضغط <span class="ui">إضافة مادة</span>.</li>
+        </ol>
+        <div class="compare">
+          <div class="box recommended">
+            <h3>الدرجة النهائية فقط</h3>
+            <p>اختره إذا كانت المادة تُقيَّم برقم واحد فقط في نهاية السنة، بلا درجات فرعية. عند إدخال الدرجات لاحقاً يظهر لك صندوق رقم واحد فقط لكل طالب، وهذا أسرع بكثير. هذا هو الخيار المناسب لأغلب المواد.</p>
+          </div>
+          <div class="box">
+            <h3>سجل الدرجات الكامل</h3>
+            <p>اختره فقط إذا كانت المدرسة تسجّل للمادة عدة درجات خلال السنة: معدل النصف الأول، درجة نصف السنة، معدل النصف الثاني، معدل السعي السنوي، درجة الامتحان النهائي، إضافة إلى الدرجة النهائية.</p>
+          </div>
+        </div>
+        <div class="note">يمكن تبديل نوع المادة لاحقاً من أيقونة القلم بجانب اسمها، لكن المنصة تطلب تأكيداً قبل التبديل لأن ذلك يغيّر ما يظهر من خانات في إدخال الدرجات وفي صفحة الطالب.</div>
+      </section>
+
+      <section class="topic" id="students">
+        <h2><span data-icon="users"></span>كيف أضيف طالباً؟ ومن أين آخذ رقمه الامتحاني؟</h2>
+        <ol class="steps">
+          <li>من القائمة الجانبية اضغط <span class="ui">الطلبة</span>.</li>
+          <li>اختر بالترتيب من القوائم الثلاث أعلى الصفحة: القسم، ثم المرحلة، ثم الشعبة.</li>
+          <li>بعد اختيار الشعبة يظهر صندوق كتابة: اكتب اسم الطالب الثلاثي واضغط <span class="ui">إضافة طالب</span>.</li>
+          <li>يولّد النظام رقماً امتحانياً من 8 أرقام تلقائياً لكل طالب جديد — لا يختاره أحد يدوياً ولا يمكن كتابته بنفسك.</li>
+          <li>يظهر الرقم فور الإضافة في رسالة أعلى الشاشة، ويبقى ظاهراً بجانب اسم الطالب في القائمة في أي وقت لاحق.</li>
+        </ol>
+        <div class="note">سلّم هذا الرقم للطالب، فهو ما يدخل به لرؤية نتيجته. احتفظ بنسخة عندك (على ورقة أو ملف) لأن الطريقة الوحيدة لمعرفته لاحقاً هي الرجوع إلى قائمة الطلبة في لوحة الإدارة.</div>
+      </section>
+
+      <section class="topic" id="grades">
+        <h2><span data-icon="grid"></span>كيف أدخل الدرجات بسرعة؟</h2>
+        <ol class="steps">
+          <li>من القائمة الجانبية اضغط <span class="ui">الدرجات</span>.</li>
+          <li>اختر بالترتيب: القسم، ثم المرحلة، ثم الشعبة، ثم المادة.</li>
+          <li>تظهر قائمة بجميع طلبة الشعبة، كل طالب في صف. أمام كل طالب صندوق واحد إن كانت المادة «الدرجة النهائية فقط»، أو ستة صناديق إن كانت «سجل الدرجات الكامل».</li>
+          <li>اكتب الدرجة، ثم اضغط Enter أو السهم لأسفل للانتقال مباشرة إلى الصندوق نفسه عند الطالب التالي، من دون لمس الفأرة.</li>
+          <li>كل درجة يجب أن تكون رقماً من 0 إلى 100.</li>
+          <li>في «سجل الدرجات الكامل»: إذا كتبت معدل النصف الأول ودرجة نصف السنة ومعدل النصف الثاني، يحسب النظام معدل السعي السنوي بنفسه؛ وإذا كتبت معدل السعي السنوي ودرجة الامتحان النهائي، يحسب الدرجة النهائية بنفسه. إذا فضّلت كتابة أي منهما بيدك، يحتفظ النظام بما كتبته ولا يغيّره.</li>
+          <li>بعد الانتهاء اضغط <span class="ui">حفظ الدرجات</span>. تظهر رسالة تؤكد عدد الطلبة الذين حُفظت درجاتهم.</li>
+        </ol>
+        <div class="warn">
+          <span data-icon="alert"></span>
+          <div>إذا غادرت الصفحة أو غيّرت الشعبة أو المادة قبل الضغط على <span class="ui">حفظ الدرجات</span>، فإن ما كتبته يضيع ولا يُحفظ. اضغط <span class="ui">حفظ الدرجات</span> دائماً قبل الانتقال إلى مكان آخر.</div>
+        </div>
+      </section>
+
+      <section class="topic" id="student-view">
+        <h2><span data-icon="search"></span>ماذا يرى الطالب عندما يدخل رقمه؟</h2>
+        <ol class="steps">
+          <li>يفتح الطالب الصفحة الرئيسية للمنصة.</li>
+          <li>يكتب رقمه الامتحاني المكوّن من 8 أرقام في الصندوق ويضغط <span class="ui">عرض النتيجة</span>.</li>
+          <li>تظهر له صفحة فيها اسمه وقسمه ومرحلته وشعبته، وتحتها جدول بجميع مواده.</li>
+          <li>أمام كل مادة تظهر الدرجة النهائية ونتيجة «ناجح» (إذا كانت 50 فأكثر) أو «راسب» (إذا كانت أقل من 50). إذا لم تُدخَل درجة بعد يظهر «—» بدل الرقم.</li>
+          <li>إذا كانت المادة من نوع «سجل الدرجات الكامل» تظهر معها بقية الدرجات الفرعية أيضاً؛ أما في «الدرجة النهائية فقط» فتبقى تلك الخانات فارغة لأنها غير مستخدمة لهذه المادة، وهذا أمر طبيعي.</li>
+          <li>زر <span class="ui">خروج</span> أعلى الصفحة يعيد الطالب إلى الصفحة الرئيسية.</li>
+        </ol>
+        <div class="note">إذا كتب الطالب رقماً خاطئاً تظهر رسالة «الرقم الامتحاني غير صحيح» — تأكد معه من الرقم المسلَّم له وأعد المحاولة.</div>
+      </section>
+
+      <section class="topic" id="password">
+        <h2><span data-icon="lock"></span>كيف أغيّر كلمة المرور؟</h2>
+        <ol class="steps">
+          <li>من القائمة الجانبية اضغط <span class="ui">كلمة المرور</span>.</li>
+          <li>اكتب كلمة المرور الحالية.</li>
+          <li>اكتب كلمة المرور الجديدة، ثم أعد كتابتها في صندوق التأكيد.</li>
+          <li>يجب ألا تقل كلمة المرور الجديدة عن 8 أحرف، ويجب أن تطابق صندوق التأكيد تماماً.</li>
+          <li>اضغط <span class="ui">حفظ</span>.</li>
+        </ol>
+        <div class="warn">
+          <span data-icon="alert"></span>
+          <div><strong>مهم:</strong> إذا كانت المنصة ما تزال تستخدم كلمة المرور الافتراضية <span class="ui">rafidain@2026</span>، يجب تغييرها إلى كلمة خاصة بالمدرسة قبل تسليم المنصة للاستخدام الفعلي، حتى لا يستطيع أي شخص آخر الدخول إلى لوحة الإدارة.</div>
+        </div>
+      </section>
+
+      <section class="topic" id="errors">
+        <h2><span data-icon="alert"></span>أخطاء شائعة وحلولها</h2>
+        <div class="qa">
+          <div class="item">
+            <div class="problem"><span data-icon="alert"></span>ظهرت رسالة أن الاسم موجود مسبقاً عند إضافة قسم أو مرحلة أو شعبة أو مادة.</div>
+            <div class="solution"><span data-icon="check"></span>يوجد بالفعل عنصر بهذا الاسم بالضبط في نفس المكان. تحقق من القائمة أولاً، أو اختر اسماً مختلفاً قليلاً.</div>
+          </div>
+          <div class="item">
+            <div class="problem"><span data-icon="alert"></span>الزر لا يستجيب، أو يظهر طلب لكتابة اسم رغم أنني ضغطت «إضافة».</div>
+            <div class="solution"><span data-icon="check"></span>صندوق الاسم فارغ أو يحتوي مسافات فقط. اكتب الاسم أولاً ثم اضغط الزر مرة أخرى.</div>
+          </div>
+          <div class="item">
+            <div class="problem"><span data-icon="alert"></span>ظهرت رسالة «اسم المستخدم أو كلمة المرور غير صحيحة» عند دخول الإدارة.</div>
+            <div class="solution"><span data-icon="check"></span>تأكد من كتابة الاسم وكلمة المرور بالضبط بلا مسافات إضافية، مع الانتباه للحروف الكبيرة والصغيرة والرمز @. إذا نُسيت كلمة المرور فلا توجد طريقة لاسترجاعها من داخل المنصة — اطلب المساعدة من الشخص الذي جهّز الجهاز.</div>
+          </div>
+          <div class="item">
+            <div class="problem"><span data-icon="alert"></span>ظهرت رسالة «محاولات كثيرة، حاول بعد دقيقة».</div>
+            <div class="solution"><span data-icon="check"></span>جرت محاولات خاطئة متكررة خلال وقت قصير (رقم امتحاني أو كلمة مرور). انتظر دقيقة تقريباً، وتأكد من الرقم أو كلمة المرور بهدوء قبل إعادة المحاولة.</div>
+          </div>
+          <div class="item">
+            <div class="problem"><span data-icon="alert"></span>ظهرت صفحة تسجيل الدخول فجأة أثناء العمل في لوحة الإدارة.</div>
+            <div class="solution"><span data-icon="check"></span>انتهت مدة الجلسة تلقائياً لأسباب أمنية بعد فترة من عدم الاستخدام. سجّل الدخول ثانية؛ أي درجات سبق أن ضغطت لها «حفظ الدرجات» تبقى محفوظة بأمان.</div>
+          </div>
+          <div class="item">
+            <div class="problem"><span data-icon="alert"></span>حذفت قسماً أو مرحلة أو شعبة بالخطأ، واختفى كل ما كان تحتها.</div>
+            <div class="solution"><span data-icon="check"></span>حذف أي مستوى يحذف معه تلقائياً كل ما يتبعه (مراحل، شعب، مواد، طلبة، درجات)، ولا يمكن التراجع عن الحذف. لهذا تسأل المنصة دائماً للتأكيد قبل الحذف — اقرأ رسالة التأكيد جيداً قبل الموافقة عليها.</div>
+          </div>
+          <div class="item">
+            <div class="problem"><span data-icon="alert"></span>رسالة «الدرجة يجب أن تكون بين 0 و100» عند حفظ الدرجات.</div>
+            <div class="solution"><span data-icon="check"></span>أحد الصناديق يحتوي رقماً أكبر من 100 أو أقل من صفر، أو نصاً غير رقمي. صحّح القيمة ثم اضغط «حفظ الدرجات» مرة أخرى.</div>
+          </div>
+          <div class="item">
+            <div class="problem"><span data-icon="alert"></span>الطالب يقول إن رقمه الامتحاني لا يعمل.</div>
+            <div class="solution"><span data-icon="check"></span>تأكد من نسخ الرقم بدقة من قائمة الطلبة في لوحة الإدارة (8 أرقام فقط بلا مسافات)، وتأكد أن الطالب لم يخطئ في كتابته.</div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <footer class="page-footer fade-in delay-3">
+    منصة رسمية لعرض النتائج — إعدادية الرافدين المهنية
+  </footer>
+
+  <script src="/js/icons.js"></script>
+  <script src="/js/theme.js"></script>
+  <script>
+    document.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = window.icons[el.dataset.icon] || ''; });
+  </script>
+</body>
+</html>
