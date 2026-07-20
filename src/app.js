@@ -2,12 +2,15 @@ const express = require('express');
 const session = require('express-session');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { SqliteSessionStore } = require('./sessionStore');
 
 function createApp({ dbPath }) {
   const app = express();
   app.set('trust proxy', 1);
   app.use(express.json());
   app.use(session({
+    // Sessions persist in the SQLite file so a deploy/restart does not log the admin out.
+    store: new SqliteSessionStore({ dbPath }),
     secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
     resave: false,
     saveUninitialized: false,
