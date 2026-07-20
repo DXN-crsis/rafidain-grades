@@ -70,12 +70,25 @@ if (resultRoot) {
       ['final_grade', 'الدرجة النهائية'],
     ];
 
+    // A detail column is rendered only if at least one subject in this result
+    // set has a non-null value for it. الدرجة النهائية is always rendered.
+    // The header (below) and the row cells (further below) are both derived
+    // from this single computed list, so they can never drift out of sync.
+    const cols = FULL_COLS.filter(([key]) =>
+      key === 'final_grade' || data.subjects.some(sub => sub[key] != null)
+    );
+
+    const theadRow = document.createElement('tr');
+    theadRow.innerHTML = `<th>${escapeHtml('المادة')}</th>` +
+      cols.map(([, label]) => `<th>${escapeHtml(label)}</th>`).join('') +
+      `<th>${escapeHtml('النتيجة')}</th>`;
+    document.getElementById('gradesHead').appendChild(theadRow);
+
     const tbody = document.getElementById('gradesBody');
     for (const sub of data.subjects) {
       const tr = document.createElement('tr');
       tr.className = 'fade-in';
-      const cells = FULL_COLS.map(([key]) => {
-        if (sub.grade_mode === 'final_only' && key !== 'final_grade') return '<td>—</td>';
+      const cells = cols.map(([key]) => {
         const v = sub[key];
         return `<td class="grade-cell" data-value="${escapeHtml(v ?? '')}">${v == null ? '—' : escapeHtml(v)}</td>`;
       }).join('');
