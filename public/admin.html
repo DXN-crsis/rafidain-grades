@@ -31,9 +31,16 @@
     .toolbar { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; }
     .toolbar .input { width: auto; min-width: 180px; }
     select.input { appearance: none; }
-    .list-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0; border-bottom: 1px solid var(--card-border); }
+    .list-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.6rem; border-bottom: 1px solid var(--card-border); border-radius: 10px; }
     .list-row .grow { flex: 1; font-weight: 700; }
     .list-row .muted { color: var(--text-muted); font-size: 0.85rem; font-weight: 400; }
+    /* clickable-row affordance: visible without hovering, not just cursor:pointer */
+    .dept-name, .list-row .grow[data-clickable] { cursor: pointer; color: var(--green-dark, var(--green)); }
+    .row-hint { color: var(--text-muted); font-weight: 400; font-size: 0.8rem; margin-inline-start: 0.5rem; }
+    .list-row.selected { background: var(--green-light); border-inline-end: 3px solid var(--green); }
+    .list-row.just-added { background: var(--green-light); }
+    .inline-edit { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
+    .inline-edit input { flex: 1 1 140px; }
     .icon-btn { background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 0.3rem; border-radius: 8px; }
     .icon-btn:hover { color: var(--green); background: var(--green-light); }
     .icon-btn.danger:hover { color: var(--danger); background: rgba(192,57,43,0.1); }
@@ -94,6 +101,23 @@
     .fo-row .fo-grade-wrap small { color: var(--text-muted); font-size: 0.78rem; margin-top: 0.2rem; }
     .fo-row input.fo-grade { width: 100%; }
     .grades-count { font-weight: 700; margin-bottom: 0.8rem; }
+
+    /* real-time visual pointer: exactly one control marked "do this next".
+       The pulsing glow is an animation, so @media (prefers-reduced-motion:
+       reduce) in style.css already disables it globally — a static ring
+       (the outline/box-shadow base state) remains. */
+    .next-target {
+      outline: 3px solid var(--green);
+      outline-offset: 2px;
+      border-radius: 10px;
+      box-shadow: 0 0 0 0 rgba(13,122,63,0.4);
+      animation: nextTargetPulse 1.7s ease-in-out infinite;
+    }
+    @keyframes nextTargetPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(13,122,63,0.35); }
+      50% { box-shadow: 0 0 0 7px rgba(13,122,63,0); }
+    }
+    .copy-btn { display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap; }
 
     @media (max-width: 480px) {
       .quick-step .toolbar .input, .quick-step .toolbar select, .quick-step .toolbar button { flex: 1 1 100%; }

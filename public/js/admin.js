@@ -1,11 +1,20 @@
 /* ===== helpers ===== */
 async function apiCall(method, url, body) {
-  const res = await fetch(url, {
-    method,
-    headers: { 'content-type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  if (res.status === 401) { location.href = '/admin-login.html'; throw new Error('unauthorized'); }
+  let res;
+  try {
+    res = await fetch(url, {
+      method,
+      headers: { 'content-type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch {
+    // Network-level failure (server down, connection dropped, offline, etc.)
+    // — fetch() throws a native English TypeError here. Never show that;
+    // match the Arabic message public/js/student.js already uses for the
+    // same situation.
+    throw new Error('تعذر الاتصال بالخادم. تأكد من تشغيل الخادم ثم حاول مرة أخرى');
+  }
+  if (res.status === 401) { location.href = '/admin-login.html'; throw new Error('انتهت الجلسة — يجري تحويلك لتسجيل الدخول'); }
   const data = await res.json().catch(() => null);
   if (!res.ok) throw new Error((data && data.error) || 'حدث خطأ');
   return data;
@@ -69,6 +78,44 @@ async function copyToClipboard(text) {
       return false;
     }
   }
+}
+
+// Replaces the native prompt() dialog for renaming a list item with an
+// inline text field in the app's own design system. nameSpan is swapped
+// for an input + حفظ/إلغاء; onCancel is responsible for putting the view
+// back the way it was (the caller's list already knows how to do that,
+// typically by re-rendering from the server).
+function startInlineRename(nameSpan, currentName, { onSave, onCancel }) {
+  const wrap = el(`<span class="grow inline-edit">
+    <input class="input" value="${escapeHtml(currentName)}">
+    <button class="btn btn-primary btn-sm" data-save>حفظ</button>
+    <button class="btn btn-ghost btn-sm" data-cancel>إلغاء</button>
+  </span>`);
+  nameSpan.replaceWith(wrap);
+  const input = wrap.querySelector('input');
+  input.focus();
+  input.select();
+  async function save() {
+    const val = input.value.trim();
+    if (!val) { showToast('اكتب اسماً أولاً', true); return; }
+    try { await onSave(val); }
+    catch (e) { showToast(friendlyError(e.message), true); }
+  }
+  wrap.querySelector('[data-save]').onclick = save;
+  wrap.querySelector('[data-cancel]').onclick = () => onCancel();
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); save(); }
+    if (e.key === 'Escape') { e.preventDefault(); onCancel(); }
+  });
+}
+
+// Briefly highlights a freshly-created row so a teacher can see where their
+// action landed. A plain class toggle on a JS timer, not a CSS animation/
+// transition, so it still shows under prefers-reduced-motion.
+function flashNew(rowEl) {
+  if (!rowEl) return;
+  rowEl.classList.add('just-added');
+  setTimeout(() => rowEl.classList.remove('just-added'), 2200);
 }
 
 const view = document.getElementById('view');
@@ -254,7 +301,14 @@ async function renderQuickView() {
       renderOptions(null);
     });
 
-    return { load, reset, get items() { return items; } };
+    return {
+      load, reset,
+      get items() { return items; },
+      // Whichever control is actually visible right now — the select, or
+      // the inline "add new" text input when that mode is active. Used to
+      // aim the real-time visual pointer at something the teacher can see.
+      visibleControl() { return addRow.hidden ? select : input; },
+    };
   }
 
   function handleDeptSelected(id) {
@@ -371,10 +425,10 @@ async function renderQuickView() {
     for (const st of students) {
       const row = el(`<div class="list-row">
         <span class="grow">${escapeHtml(st.name)} <span class="muted" style="direction:ltr">${escapeHtml(st.exam_number)}</span></span>
-        <button class="icon-btn" title="نسخ الرقم الامتحاني" data-icon="copy"></button>
+        <button class="btn btn-ghost btn-sm copy-btn"><span data-icon="copy"></span>نسخ الرقم</button>
       </div>`);
       injectIcons(row);
-      row.querySelector('[title="نسخ الرقم الامتحاني"]').onclick = async () => {
+      row.querySelector('.copy-btn').onclick = async () => {
         const ok = await copyToClipboard(st.exam_number);
         showToast(ok ? 'تم نسخ الرقم الامتحاني' : 'تعذر النسخ — انسخه يدوياً', !ok);
       };
@@ -401,7 +455,7 @@ async function renderQuickView() {
       confirmBox.innerHTML = '';
       const box = el(`<div class="inline-confirm">
         تمت إضافة الطالب. رقمه الامتحاني: <b style="direction:ltr">${escapeHtml(created.exam_number)}</b>
-        <button class="icon-btn" title="نسخ الرقم الامتحاني" data-icon="copy"></button>
+        <button class="btn btn-ghost btn-sm copy-btn"><span data-icon="copy"></span>نسخ الرقم</button>
       </div>`);
       injectIcons(box);
       box.querySelector('button').onclick = async () => {
@@ -474,9 +528,27 @@ async function renderQuickView() {
     return `جاهز — ${arDigits(students.length)} طالب مسجل. اضغط "إدخال الدرجات" في الخطوة ٤ أو أضف طالباً آخر.`;
   }
 
+  // Real-time visual pointer: exactly one control is marked as "do this
+  // next" at a time, moving as the teacher progresses. This is separate
+  // from — and in addition to — the status-line sentence.
+  function pointTo(target) {
+    card.querySelectorAll('.next-target').forEach(n => n.classList.remove('next-target'));
+    if (target) target.classList.add('next-target');
+  }
+
+  function updatePointer() {
+    if (!state.deptId) { pointTo(deptPicker.visibleControl()); return; }
+    if (!state.stageId) { pointTo(stagePicker.visibleControl()); return; }
+    if (!state.sectionId) { pointTo(sectionPicker.visibleControl()); return; }
+    if (subjects.length === 0) { pointTo(card.querySelector('#qNewSub')); return; }
+    if (students.length === 0) { pointTo(card.querySelector('#qNewStudent')); return; }
+    pointTo(card.querySelector('#qGoGrades'));
+  }
+
   function refreshUI() {
     updateStepStates();
     statusEl.textContent = computeStatus();
+    updatePointer();
   }
 
   refreshUI();
@@ -502,23 +574,32 @@ async function renderCatalogView() {
   view.appendChild(card);
   injectIcons(card);
 
-  async function loadDepts() {
+  async function loadDepts(highlightId) {
     const depts = await apiCall('GET', '/api/admin/departments');
     const list = card.querySelector('#deptList');
     list.innerHTML = '';
     for (const d of depts) {
-      const row = el(`<div class="list-row">
-        <span class="grow" style="cursor:pointer">${escapeHtml(d.name)}</span>
+      const row = el(`<div class="list-row${d.id === state.deptId ? ' selected' : ''}">
+        <span class="grow dept-name">${escapeHtml(d.name)}<span class="row-hint">عرض المراحل والشعب ›</span></span>
         <button class="icon-btn" title="تعديل" data-icon="edit"></button>
         <button class="icon-btn danger" title="حذف" data-icon="trash"></button>
       </div>`);
       injectIcons(row);
-      row.querySelector('.grow').onclick = () => { state.deptId = d.id; loadStages(d); };
-      row.querySelector('[title="تعديل"]').onclick = async () => {
-        const name = prompt('الاسم الجديد للقسم:', d.name);
-        if (!name) return;
-        try { await apiCall('PUT', `/api/admin/departments/${d.id}`, { name }); loadDepts().catch(e => showToast(e.message, true)); }
-        catch (e) { showToast(e.message, true); }
+      row.querySelector('.dept-name').onclick = () => {
+        state.deptId = d.id;
+        list.querySelectorAll('.list-row').forEach(r => r.classList.remove('selected'));
+        row.classList.add('selected');
+        loadStages(d);
+      };
+      row.querySelector('[title="تعديل"]').onclick = () => {
+        startInlineRename(row.querySelector('.dept-name'), d.name, {
+          onSave: async (name) => {
+            await apiCall('PUT', `/api/admin/departments/${d.id}`, { name });
+            showToast('تم تعديل الاسم');
+            await loadDepts(d.id);
+          },
+          onCancel: () => loadDepts().catch(e => showToast(e.message, true)),
+        });
       };
       row.querySelector('[title="حذف"]').onclick = async () => {
         if (!confirm(`حذف قسم "${d.name}" وكل ما يتبعه من مراحل وشعب وطلبة؟`)) return;
@@ -526,21 +607,26 @@ async function renderCatalogView() {
         catch (e) { showToast(e.message, true); }
       };
       list.appendChild(row);
+      if (d.id === highlightId) flashNew(row);
     }
   }
 
   card.querySelector('#addDept').onclick = async () => {
     const input = card.querySelector('#newDept');
     if (!input.value.trim()) return;
-    try { await apiCall('POST', '/api/admin/departments', { name: input.value }); input.value = ''; loadDepts().catch(e => showToast(e.message, true)); showToast('تمت إضافة القسم'); }
-    catch (e) { showToast(e.message, true); }
+    try {
+      const created = await apiCall('POST', '/api/admin/departments', { name: input.value });
+      input.value = '';
+      showToast('تمت إضافة القسم');
+      loadDepts(created.id).catch(e => showToast(e.message, true));
+    } catch (e) { showToast(friendlyError(e.message), true); }
   };
 
   async function loadStages(dept) {
     const pane = card.querySelector('#detailPane');
     pane.innerHTML = '';
     const box = el(`<div>
-      <h4 style="margin-bottom:0.8rem">مراحل قسم ${escapeHtml(dept.name)}</h4>
+      <h4 style="margin-bottom:0.8rem">مراحل قسم: ${escapeHtml(dept.name)}</h4>
       <div class="toolbar">
         <input class="input" id="newStage" placeholder="مثال: المرحلة الثالثة">
         <button class="btn btn-primary" id="addStage"><span data-icon="plus"></span>إضافة مرحلة</button>
@@ -550,7 +636,7 @@ async function renderCatalogView() {
     pane.appendChild(box);
     injectIcons(box);
 
-    async function refresh() {
+    async function refresh(highlightId) {
       const stages = await apiCall('GET', `/api/admin/stages?department_id=${dept.id}`);
       const list = box.querySelector('#stageList');
       list.innerHTML = '';
@@ -573,14 +659,19 @@ async function renderCatalogView() {
         row.querySelector('[data-act="sections"]').onclick = () => renderSections(s, row.querySelector('.sub-pane'));
         row.querySelector('[data-act="subjects"]').onclick = () => renderSubjects(s, row.querySelector('.sub-pane'));
         list.appendChild(row);
+        if (s.id === highlightId) flashNew(row.querySelector('.list-row'));
       }
     }
 
     box.querySelector('#addStage').onclick = async () => {
       const input = box.querySelector('#newStage');
       if (!input.value.trim()) return;
-      try { await apiCall('POST', '/api/admin/stages', { name: input.value, department_id: dept.id }); input.value = ''; refresh().catch(e => showToast(e.message, true)); }
-      catch (e) { showToast(e.message, true); }
+      try {
+        const created = await apiCall('POST', '/api/admin/stages', { name: input.value, department_id: dept.id });
+        input.value = '';
+        showToast('تمت إضافة المرحلة');
+        refresh(created.id).catch(e => showToast(e.message, true));
+      } catch (e) { showToast(friendlyError(e.message), true); }
     };
     refresh().catch(e => showToast(e.message, true));
   }
@@ -596,7 +687,7 @@ async function renderCatalogView() {
     </div>`);
     pane.appendChild(box);
     injectIcons(box);
-    async function refresh() {
+    async function refresh(highlightId) {
       const secs = await apiCall('GET', `/api/admin/sections?stage_id=${stage.id}`);
       const list = box.querySelector('#secList');
       list.innerHTML = '';
@@ -610,13 +701,18 @@ async function renderCatalogView() {
           catch (e) { showToast(e.message, true); }
         };
         list.appendChild(row);
+        if (sc.id === highlightId) flashNew(row);
       }
     }
     box.querySelector('#addSec').onclick = async () => {
       const input = box.querySelector('#newSec');
       if (!input.value.trim()) return;
-      try { await apiCall('POST', '/api/admin/sections', { name: input.value, stage_id: stage.id }); input.value = ''; refresh().catch(e => showToast(e.message, true)); }
-      catch (e) { showToast(e.message, true); }
+      try {
+        const created = await apiCall('POST', '/api/admin/sections', { name: input.value, stage_id: stage.id });
+        input.value = '';
+        showToast('تمت إضافة الشعبة');
+        refresh(created.id).catch(e => showToast(e.message, true));
+      } catch (e) { showToast(friendlyError(e.message), true); }
     };
     refresh().catch(e => showToast(e.message, true));
   }
@@ -639,7 +735,7 @@ async function renderCatalogView() {
     </div>`);
     pane.appendChild(box);
     injectIcons(box);
-    async function refresh() {
+    async function refresh(highlightId) {
       const subs = await apiCall('GET', `/api/admin/subjects?stage_id=${stage.id}`);
       const list = box.querySelector('#subList');
       list.innerHTML = '';
@@ -666,14 +762,19 @@ async function renderCatalogView() {
           catch (e) { showToast(e.message, true); }
         };
         list.appendChild(row);
+        if (sb.id === highlightId) flashNew(row);
       }
     }
     box.querySelector('#addSub').onclick = async () => {
       const name = box.querySelector('#newSub');
       const mode = box.querySelector('#subMode').value;
       if (!name.value.trim()) return;
-      try { await apiCall('POST', '/api/admin/subjects', { name: name.value, stage_id: stage.id, grade_mode: mode }); name.value = ''; refresh().catch(e => showToast(e.message, true)); showToast('تمت إضافة المادة'); }
-      catch (e) { showToast(e.message, true); }
+      try {
+        const created = await apiCall('POST', '/api/admin/subjects', { name: name.value, stage_id: stage.id, grade_mode: mode });
+        name.value = '';
+        showToast('تمت إضافة المادة');
+        refresh(created.id).catch(e => showToast(e.message, true));
+      } catch (e) { showToast(friendlyError(e.message), true); }
     };
     refresh().catch(e => showToast(e.message, true));
   }
@@ -738,7 +839,7 @@ async function renderStudentsView() {
     if (secSel.value) loadStudents().catch(e => showToast(e.message, true));
   };
 
-  async function loadStudents() {
+  async function loadStudents(highlightId) {
     const students = await apiCall('GET', `/api/admin/students?section_id=${secSel.value}`);
     const list = card.querySelector('#studentList');
     list.innerHTML = '';
@@ -748,18 +849,22 @@ async function renderStudentsView() {
     }
     for (const st of students) {
       const row = el(`<div class="list-row">
-        <span class="grow">${escapeHtml(st.name)}
+        <span class="grow student-name">${escapeHtml(st.name)}
           <span class="muted">الرقم الامتحاني: <b style="direction:ltr;display:inline-block">${escapeHtml(st.exam_number)}</b></span>
         </span>
         <button class="icon-btn" title="تعديل" data-icon="edit"></button>
         <button class="icon-btn danger" title="حذف" data-icon="trash"></button>
       </div>`);
       injectIcons(row);
-      row.querySelector('[title="تعديل"]').onclick = async () => {
-        const name = prompt('الاسم الجديد:', st.name);
-        if (!name) return;
-        try { await apiCall('PUT', `/api/admin/students/${st.id}`, { name, section_id: st.section_id }); loadStudents().catch(e => showToast(e.message, true)); }
-        catch (e) { showToast(e.message, true); }
+      row.querySelector('[title="تعديل"]').onclick = () => {
+        startInlineRename(row.querySelector('.student-name'), st.name, {
+          onSave: async (name) => {
+            await apiCall('PUT', `/api/admin/students/${st.id}`, { name, section_id: st.section_id });
+            showToast('تم تعديل الاسم');
+            await loadStudents();
+          },
+          onCancel: () => loadStudents().catch(e => showToast(e.message, true)),
+        });
       };
       row.querySelector('[title="حذف"]').onclick = async () => {
         if (!confirm(`حذف الطالب "${st.name}" ودرجاته؟`)) return;
@@ -767,6 +872,7 @@ async function renderStudentsView() {
         catch (e) { showToast(e.message, true); }
       };
       list.appendChild(row);
+      if (st.id === highlightId) flashNew(row);
     }
   }
 
@@ -777,8 +883,8 @@ async function renderStudentsView() {
       const created = await apiCall('POST', '/api/admin/students', { name: input.value, section_id: Number(secSel.value) });
       input.value = '';
       showToast(`تمت الإضافة — الرقم الامتحاني: ${created.exam_number}`);
-      loadStudents().catch(e => showToast(e.message, true));
-    } catch (e) { showToast(e.message, true); }
+      loadStudents(created.id).catch(e => showToast(e.message, true));
+    } catch (e) { showToast(friendlyError(e.message), true); }
   };
 }
 
@@ -829,20 +935,41 @@ async function renderGradesView() {
     return opt ? opt.textContent : '';
   }
 
+  // Real-time visual pointer, same pattern as the quick view: exactly one
+  // control marked as "do this next", moving as the teacher progresses.
+  function updatePointer() {
+    const mark = (elm) => {
+      card.querySelectorAll('.next-target').forEach(n => n.classList.remove('next-target'));
+      if (elm) elm.classList.add('next-target');
+    };
+    if (!gDept.value) { mark(gDept); return; }
+    if (!gStage.value) { mark(gStage); return; }
+    if (!gSec.value) { mark(gSec); return; }
+    if (!gSub.value) { mark(gSub); return; }
+    if (currentMode === 'final_only') {
+      const nextEmpty = [...gridWrap.querySelectorAll('input.fo-grade')].find(i => i.value === '');
+      mark(nextEmpty || gridWrap.querySelector('#gFoSave'));
+      return;
+    }
+    mark(null);
+  }
+
   function updateStatus() {
-    if (gradesDirty) { statusLine.textContent = 'فيه تغييرات غير محفوظة — اضغط حفظ'; return; }
-    if (!gDept.value) { statusLine.textContent = 'اختر القسم أولاً'; return; }
-    if (!gStage.value) { statusLine.textContent = `اخترت: ${selectedText(gDept)}. الآن اختر المرحلة.`; return; }
-    if (!gSec.value) { statusLine.textContent = `اخترت: ${selectedText(gStage)}. الآن اختر الشعبة.`; return; }
-    if (!gSub.value) { statusLine.textContent = 'اخترت الشعبة. الآن اختر المادة.'; return; }
+    if (gradesDirty) { statusLine.textContent = 'فيه تغييرات غير محفوظة — اضغط حفظ'; updatePointer(); return; }
+    if (!gDept.value) { statusLine.textContent = 'اختر القسم أولاً'; updatePointer(); return; }
+    if (!gStage.value) { statusLine.textContent = `اخترت: ${selectedText(gDept)}. الآن اختر المرحلة.`; updatePointer(); return; }
+    if (!gSec.value) { statusLine.textContent = `اخترت: ${selectedText(gStage)}. الآن اختر الشعبة.`; updatePointer(); return; }
+    if (!gSub.value) { statusLine.textContent = 'اخترت الشعبة. الآن اختر المادة.'; updatePointer(); return; }
     if (currentMode === 'final_only') {
       const remaining = gridCounts.total - gridCounts.filled;
       statusLine.textContent = remaining === 0
         ? 'تم إدخال درجات جميع الطلبة. اضغط حفظ.'
         : `أدخل الدرجة النهائية لكل طالب، ثم اضغط حفظ — بقي ${arDigits(remaining)} من ${arDigits(gridCounts.total)}.`;
+      updatePointer();
       return;
     }
     statusLine.textContent = 'أدخل الدرجات ثم اضغط حفظ.';
+    updatePointer();
   }
   updateStatus();
 
