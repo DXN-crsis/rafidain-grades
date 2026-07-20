@@ -10,13 +10,12 @@
     .page { max-width: 900px; margin: 0 auto; padding: 1.5rem; }
     .head-card { display: flex; align-items: center; gap: 1.25rem; margin-bottom: 1.25rem; }
     .head-card .logo-circle { width: 84px; height: 84px; margin: 0; flex-shrink: 0; }
-    .head-card h1 { font-size: 1.35rem; font-weight: 800; }
+    .head-card h1 { font-size: var(--fs-lg); font-weight: 800; }
     .head-card .meta { color: var(--text-muted); font-weight: 700; margin-top: 0.25rem; }
     .head-card .spacer { flex: 1; }
   </style>
 </head>
 <body>
-  <div class="flag-bar"><span class="red"></span><span class="white"></span><span class="black"></span></div>
   <button class="theme-toggle" data-theme-icon onclick="toggleTheme()" aria-label="تبديل الوضع الداكن"></button>
   <div class="page" id="result">
     <div class="glass-card head-card fade-in">

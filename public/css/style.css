@@ -63,13 +63,13 @@
   --space-8: 3rem;
 
   /* المقياس الطباعي / type scale */
-  --fs-xs: 0.8rem;
-  --fs-sm: 0.9rem;
-  --fs-base: 1rem;
-  --fs-md: 1.15rem;
-  --fs-lg: 1.5rem;
-  --fs-xl: 2rem;
-  --fs-2xl: 2.75rem;
+  --fs-xs: 0.9rem;
+  --fs-sm: 1rem;
+  --fs-base: 1.125rem;
+  --fs-md: 1.3rem;
+  --fs-lg: clamp(1.5rem, 1.2rem + 1.2vw, 1.9rem);
+  --fs-xl: clamp(1.9rem, 1.4rem + 2vw, 2.5rem);
+  --fs-2xl: clamp(2.2rem, 1.6rem + 3vw, 3.2rem);
 
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -99,7 +99,8 @@ body {
   background-attachment: fixed;
   color: var(--text);
   min-height: 100vh;
-  line-height: 1.6;
+  line-height: 1.75;
+  letter-spacing: 0;
   transition: background 0.4s var(--ease), color 0.4s var(--ease);
   position: relative;
 }
@@ -152,13 +153,6 @@ p { color: var(--text-muted); }
   font-variant-numeric: tabular-nums;
 }
 
-/* ===== شريط العلم العراقي ===== */
-.flag-bar { height: 6px; display: flex; }
-.flag-bar span { flex: 1; }
-.flag-bar .red { background: #ce1126; }
-.flag-bar .white { background: #ffffff; }
-.flag-bar .black { background: #000000; }
-
 /* ===== البطاقة الزجاجية ===== */
 .glass-card {
   background: var(--card-bg);
@@ -183,14 +177,18 @@ p { color: var(--text-muted); }
 
 /* ===== الأزرار والحقول ===== */
 .btn {
-  font-family: inherit; font-size: 1rem; font-weight: 700;
+  font-family: inherit; font-size: var(--fs-base); font-weight: 700;
   border: none; border-radius: 12px; padding: 0.7rem 1.4rem;
   cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem;
+  min-height: 44px;
   transition: transform 0.15s var(--ease), box-shadow 0.15s var(--ease), background 0.2s var(--ease);
 }
 .btn:hover { transform: translateY(-1px); }
 .btn:active { transform: translateY(0); }
-.btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+.btn:disabled {
+  opacity: 0.45; cursor: not-allowed; transform: none;
+  box-shadow: none; filter: grayscale(0.4);
+}
 .btn-primary { background: var(--green); color: #fff; box-shadow: 0 4px 14px rgba(13,122,63,0.35); }
 .btn-primary:hover { background: var(--green-dark); }
 .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
@@ -200,18 +198,23 @@ p { color: var(--text-muted); }
 .btn svg { width: 18px; height: 18px; }
 
 .input {
-  font-family: inherit; font-size: 1rem; color: var(--text);
+  font-family: inherit; font-size: var(--fs-base); color: var(--text);
   background: var(--input-bg); border: 1px solid var(--card-border);
   border-radius: 12px; padding: 0.7rem 1rem; width: 100%;
+  min-height: 44px;
   transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
 }
 .input::placeholder { color: var(--text-muted); }
 .input:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(13,122,63,0.15); }
+.input:disabled {
+  opacity: 0.5; cursor: not-allowed; color: var(--text-muted);
+  border-style: dashed;
+}
 
 /* ===== شارات النجاح/الرسوب ===== */
 .badge-pass, .badge-fail {
   display: inline-block; padding: 0.15rem 0.7rem; border-radius: 999px;
-  font-weight: 700; font-size: 0.85rem;
+  font-weight: 700; font-size: var(--fs-xs);
 }
 .badge-pass { background: var(--green-light); color: var(--green); }
 .badge-fail { background: rgba(192,57,43,0.12); color: var(--danger); }
@@ -238,14 +241,14 @@ p { color: var(--text-muted); }
 .fade-in.delay-3 { animation-delay: 0.3s; }
 
 /* ===== جداول الدرجات ===== */
-.table-wrap { overflow-x: auto; }
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 table.grades { width: 100%; border-collapse: collapse; }
 table.grades th, table.grades td {
   padding: 0.65rem 0.9rem; text-align: center;
   border-bottom: 1px solid var(--card-border);
   white-space: nowrap;
 }
-table.grades th { color: var(--text-muted); font-weight: 700; font-size: 0.85rem; }
+table.grades th { color: var(--text-muted); font-weight: 700; font-size: var(--fs-xs); }
 table.grades tbody tr { transition: background 0.15s var(--ease); }
 table.grades tbody tr:hover { background: rgba(13, 122, 63, 0.05); }
 table.grades td.subject-name { text-align: right; font-weight: 700; }
@@ -254,6 +257,7 @@ table.grades input.input { width: 4.5rem; padding: 0.35rem; text-align: center; 
 /* ===== أدوات مساعدة عامة (لا تتعارض مع العقد أعلاه) ===== */
 .container { max-width: 1080px; margin-inline: auto; padding-inline: var(--space-5); }
 .text-muted { color: var(--text-muted); }
+.muted { color: var(--text-muted); font-size: var(--fs-xs); font-weight: 400; }
 .text-center { text-align: center; }
 .stack { display: flex; flex-direction: column; gap: var(--space-4); }
 .row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
