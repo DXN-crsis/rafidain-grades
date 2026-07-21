@@ -6,36 +6,40 @@
   <title>النتيجة — إعدادية الرافدين المهنية</title>
   <link rel="stylesheet" href="/css/style.css">
   <link rel="icon" href="/assets/logo.png">
-  <style>
-    .page { max-width: 900px; margin: 0 auto; padding: 1.5rem; }
-    .head-card { display: flex; align-items: center; gap: 1.25rem; margin-bottom: 1.25rem; }
-    .head-card .logo-circle { width: 84px; height: 84px; margin: 0; flex-shrink: 0; }
-    .head-card h1 { font-size: var(--fs-lg); font-weight: 800; }
-    .head-card .meta { color: var(--text-muted); font-weight: 700; margin-top: 0.25rem; }
-    .head-card .spacer { flex: 1; }
-  </style>
 </head>
-<body>
+<body class="page-aurora">
   <button class="theme-toggle" data-theme-icon onclick="toggleTheme()" aria-label="تبديل الوضع الداكن"></button>
-  <div class="page" id="result">
-    <div class="glass-card head-card fade-in">
-      <div class="logo-circle"><img src="/assets/logo.png" alt="شعار المدرسة"></div>
-      <div>
+
+  <main class="result-wrap" id="result">
+    <div class="result-card rise">
+      <header class="result-head">
+        <span class="logo-ring"><img src="/assets/logo.png" alt="شعار إعدادية الرافدين المهنية"></span>
+        <div>
+          <div class="school-name">إعدادية الرافدين المهنية</div>
+          <div class="head-sub">نتيجة الطالب — وثيقة إلكترونية</div>
+        </div>
+      </header>
+      <div class="river-line" aria-hidden="true"></div>
+
+      <section class="result-identity">
         <h1 id="studentName"></h1>
-        <div class="meta" id="studentMeta"></div>
-      </div>
-      <div class="spacer"></div>
-      <button class="btn btn-ghost" id="backBtn"><span data-icon="logout"></span>خروج</button>
-    </div>
-    <div class="glass-card fade-in delay-1">
+        <ul class="meta-chips" id="studentMeta"></ul>
+      </section>
+
       <div class="table-wrap">
-        <table class="grades">
+        <table class="grades" aria-label="جدول درجات الطالب">
           <thead id="gradesHead"></thead>
           <tbody id="gradesBody"></tbody>
         </table>
       </div>
+
+      <div class="result-actions no-print">
+        <button class="btn btn-ghost" id="printBtn"><span data-icon="printer"></span>طباعة النتيجة</button>
+        <button class="btn btn-primary" id="backBtn"><span data-icon="arrowRight"></span>استعلام جديد</button>
+      </div>
     </div>
-  </div>
+  </main>
+
   <script src="/js/icons.js"></script>
   <script src="/js/theme.js"></script>
   <script src="/js/student.js"></script>
