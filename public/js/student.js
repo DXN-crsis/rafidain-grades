@@ -1,7 +1,8 @@
-// Inject icons into any [data-icon] slot.
-document.querySelectorAll('[data-icon]').forEach(el => {
-  el.innerHTML = window.icons[el.dataset.icon] || '';
-});
+/* واجهة الطالب: صفحة الاستعلام (index.html) وصفحة النتيجة (student.html).
+   ملاحظة ثابتة: منطق اشتقاق أعمدة جدول النتيجة (FULL_COLS ومرشّح cols
+   وبناء الترويسة والصفوف) مجمّد — أي تعديل هنا شكلي فقط. */
+
+const NET_ERR = 'تعذر الاتصال بالخادم. تأكد من تشغيل الخادم ثم حاول مرة أخرى.';
 
 function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({
@@ -11,7 +12,7 @@ function escapeHtml(s) {
 
 const examInput = document.getElementById('exam');
 if (examInput) {
-  // ---- login page logic ----
+  // ---- صفحة الاستعلام ----
   const btn = document.getElementById('loginBtn');
   const errEl = document.getElementById('error');
 
@@ -39,7 +40,7 @@ if (examInput) {
       sessionStorage.setItem('studentData', JSON.stringify(data));
       location.href = '/student.html';
     } catch {
-      errEl.textContent = 'تعذر الاتصال بالخادم';
+      errEl.textContent = NET_ERR;
       errEl.hidden = false;
     } finally {
       btn.disabled = false;
@@ -52,14 +53,26 @@ if (examInput) {
 
 const resultRoot = document.getElementById('result');
 if (resultRoot) {
-  // ---- grades page logic ----
+  // ---- صفحة النتيجة ----
   const raw = sessionStorage.getItem('studentData');
   if (!raw) { location.href = '/'; }
   else {
     const data = JSON.parse(raw);
     document.getElementById('studentName').textContent = data.name;
-    document.getElementById('studentMeta').textContent =
-      `${data.department} — ${data.stage} — ${data.section}`;
+
+    // بطاقة الهوية: القسم والمرحلة والشعبة كرقاقات (بناء DOM آمن دون innerHTML).
+    const metaEl = document.getElementById('studentMeta');
+    metaEl.innerHTML = '';
+    [['القسم', data.department], ['المرحلة', data.stage], ['الشعبة', data.section]].forEach(([label, value]) => {
+      const li = document.createElement('li');
+      li.className = 'chip';
+      const lab = document.createElement('span');
+      lab.className = 'chip-label';
+      lab.textContent = label + ':';
+      li.appendChild(lab);
+      li.appendChild(document.createTextNode(' ' + String(value ?? '')));
+      metaEl.appendChild(li);
+    });
 
     const FULL_COLS = [
       ['first_term_avg', 'معدل النصف الأول'],
@@ -101,19 +114,26 @@ if (resultRoot) {
       tbody.appendChild(tr);
     }
 
-    // Animated counters for grade cells.
-    document.querySelectorAll('.grade-cell').forEach(cell => {
-      const target = parseFloat(cell.dataset.value);
-      if (Number.isNaN(target)) return;
-      let cur = 0;
-      const step = Math.max(1, Math.ceil(target / 25));
-      const tick = () => {
-        cur = Math.min(cur + step, target);
-        cell.textContent = cur;
-        if (cur < target) requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
-    });
+    // عدّادات متحركة لخلايا الدرجات — تُتخطى كلياً عند تفعيل «تقليل الحركة»
+    // فتظهر القيم النهائية مباشرة (الخلايا مرسومة بقيمها أصلاً).
+    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!reduceMotion) {
+      document.querySelectorAll('.grade-cell').forEach(cell => {
+        const target = parseFloat(cell.dataset.value);
+        if (Number.isNaN(target)) return;
+        let cur = 0;
+        const step = Math.max(1, Math.ceil(target / 25));
+        const tick = () => {
+          cur = Math.min(cur + step, target);
+          cell.textContent = cur;
+          if (cur < target) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      });
+    }
+
+    const printBtn = document.getElementById('printBtn');
+    if (printBtn) printBtn.addEventListener('click', () => window.print());
 
     document.getElementById('backBtn').addEventListener('click', () => {
       sessionStorage.removeItem('studentData');
