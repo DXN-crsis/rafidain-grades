@@ -29,14 +29,97 @@ async function apiCall(method, url, body) {
   return data;
 }
 
+/* ===== مركز الإشعارات =====
+   كل رسائل النجاح والفشل تمر من هنا: لافتة تنزل من أعلى المنتصف بأسلوب
+   iOS ثم تنسحب تلقائياً، ويُحفظ سجل الجلسة في قائمة الجرس أعلى الصفحة. */
+const notifCenter = { items: [], unread: 0, panelOpen: false };
+
+function notifStackEl() {
+  let s = document.getElementById('notifStack');
+  if (!s) { s = document.createElement('div'); s.id = 'notifStack'; document.body.appendChild(s); }
+  return s;
+}
+
+function notify(msg, type = 'ok') {
+  const stack = notifStackEl();
+  while (stack.children.length >= 3) stack.removeChild(stack.lastElementChild);
+  const n = el(`<div class="notif${type === 'danger' ? ' danger' : ''}" role="status">
+    <span class="notif-ic">${iconHtml(type === 'danger' ? 'alert' : 'checkCircle')}</span>
+    <div class="notif-body"><div class="notif-msg">${escapeHtml(msg)}</div></div>
+  </div>`);
+  stack.prepend(n);
+  injectIcons(n);
+  const dismiss = () => {
+    if (!n.isConnected) return;
+    n.classList.add('leaving');
+    setTimeout(() => n.remove(), 200);
+  };
+  const timer = setTimeout(dismiss, 3500);
+  n.addEventListener('click', () => { clearTimeout(timer); dismiss(); });
+
+  notifCenter.items.unshift({ msg, type, ts: Date.now() });
+  if (notifCenter.items.length > 60) notifCenter.items.pop();
+  if (!notifCenter.panelOpen) notifCenter.unread += 1;
+  updateNotifBadge();
+  renderNotifPanelList();
+}
+
+// اسم قديم تستدعيه كل الشاشات — يمرر إلى مركز الإشعارات.
 function showToast(msg, isError = false) {
-  document.querySelectorAll('.toast').forEach(t => t.remove());
-  const t = document.createElement('div');
-  t.className = 'toast' + (isError ? ' error' : '');
-  t.setAttribute('role', 'status');
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), isError ? 4200 : 2600);
+  notify(msg, isError ? 'danger' : 'ok');
+}
+
+function updateNotifBadge() {
+  const badge = document.getElementById('notifBadge');
+  if (!badge) return;
+  if (notifCenter.unread > 0) {
+    badge.hidden = false;
+    badge.textContent = notifCenter.unread > 9 ? '+٩' : arDigits(notifCenter.unread);
+  } else {
+    badge.hidden = true;
+  }
+}
+
+function renderNotifPanelList() {
+  const list = document.getElementById('notifPanelList');
+  if (!list) return;
+  if (notifCenter.items.length === 0) {
+    list.innerHTML = '<div class="notif-empty">لا إشعارات بعد — يظهر هنا سجل ما تنجزه في هذه الجلسة.</div>';
+    return;
+  }
+  list.innerHTML = '';
+  for (const it of notifCenter.items) {
+    const row = el(`<div class="notif-row">
+      <span class="notif-ic${it.type === 'danger' ? '' : ''}" style="${it.type === 'danger' ? 'background:var(--danger-bg);color:var(--danger)' : ''}">${iconHtml(it.type === 'danger' ? 'alert' : 'checkCircle')}</span>
+      <span class="notif-row-text">${escapeHtml(it.msg)}</span>
+      <span class="notif-row-time">${escapeHtml(relTime(it.ts))}</span>
+    </div>`);
+    list.appendChild(row);
+  }
+  injectIcons(list);
+}
+
+function closeNotifPanel() {
+  const p = document.getElementById('notifPanel');
+  if (p) p.remove();
+  notifCenter.panelOpen = false;
+}
+
+function openNotifPanel() {
+  const wrap = document.getElementById('bellWrap');
+  if (!wrap) return;
+  closeNotifPanel();
+  const panel = el(`<div class="notif-panel" id="notifPanel" role="region" aria-label="سجل الإشعارات">
+    <div class="notif-panel-head"><span>الإشعارات</span><button type="button" class="icon-btn" style="min-width:36px;min-height:36px" aria-label="إغلاق">${iconHtml('x')}</button></div>
+    <div class="notif-panel-list" id="notifPanelList"></div>
+  </div>`);
+  panel.querySelector('button').onclick = closeNotifPanel;
+  wrap.appendChild(panel);
+  injectIcons(panel);
+  notifCenter.panelOpen = true;
+  notifCenter.unread = 0;
+  updateNotifBadge();
+  renderNotifPanelList();
 }
 
 function el(html) {
@@ -55,6 +138,32 @@ function escapeHtml(s) {
 // غربية دائماً — يجب أن تطابق ما يكتبه الطالب في صفحة الاستعلام حرفياً.
 function arDigits(n) {
   return String(n).replace(/[0-9]/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
+}
+
+// تمييز العدد العربي الصحيح: ٠ نص خاص، ١ مفرد، ٢ مثنى،
+// ٣-١٠ جمع، ١١ فأكثر مفرد منصوب.
+function countNoun(n, forms) {
+  if (n === 0) return forms.zero;
+  if (n === 1) return forms.one;
+  if (n === 2) return forms.two;
+  if (n >= 3 && n <= 10) return `${arDigits(n)} ${forms.few}`;
+  return `${arDigits(n)} ${forms.many}`;
+}
+const countStudents = n => countNoun(n, { zero: 'لا طلبة', one: 'طالب واحد', two: 'طالبان', few: 'طلاب', many: 'طالباً' });
+const countSubjects = n => countNoun(n, { zero: 'لا مواد', one: 'مادة واحدة', two: 'مادتان', few: 'مواد', many: 'مادة' });
+const countStages = n => countNoun(n, { zero: 'بلا مراحل', one: 'مرحلة واحدة', two: 'مرحلتان', few: 'مراحل', many: 'مرحلة' });
+const countResults = n => countNoun(n, { zero: 'لا نتائج', one: 'نتيجة واحدة', two: 'نتيجتان', few: 'نتائج', many: 'نتيجة' });
+
+// وقت نسبي عربي موجز لسجل الإشعارات.
+function relTime(ts) {
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 45) return 'قبل لحظات';
+  const m = Math.floor(s / 60);
+  if (m < 60) return 'قبل ' + countNoun(Math.max(m, 1), { zero: 'لحظات', one: 'دقيقة', two: 'دقيقتين', few: 'دقائق', many: 'دقيقة' });
+  const h = Math.floor(m / 60);
+  if (h < 24) return 'قبل ' + countNoun(h, { zero: 'ساعة', one: 'ساعة', two: 'ساعتين', few: 'ساعات', many: 'ساعة' });
+  const d = Math.floor(h / 24);
+  return 'قبل ' + countNoun(d, { zero: 'يوم', one: 'يوم', two: 'يومين', few: 'أيام', many: 'يوماً' });
 }
 
 // يعيد صياغة خطأ الخادم إلى «ما العمل الآن» بدل «ما الذي فشل».
@@ -263,7 +372,7 @@ async function renderQuickView() {
     if (s.subjects === 'active') return 'الخطوة ٤ من ٥ — أضف مواد هذه المرحلة، وتُطبَّق على جميع طلبتها.';
     if (s.students === 'active') return 'الخطوة ٥ من ٥ — اكتب اسم الطالب الثلاثي واضغط إضافة.';
     const n = qd.students ? qd.students.length : 0;
-    return `اكتمل الإعداد — ${arDigits(n)} طالباً في ${sec ? sec.name : 'الشعبة'}. اضغط «ابدأ إدخال الدرجات».`;
+    return `اكتمل الإعداد — ${countStudents(n)} في ${sec ? sec.name : 'الشعبة'}. اضغط «ابدأ إدخال الدرجات».`;
   }
 
   /* ---- لبنات البناء ---- */
@@ -357,6 +466,7 @@ async function renderQuickView() {
           state.deptId = created.id; state.stageId = null; state.sectionId = null;
           quickUI.expanded.dept = false;
           quickUI.lastConfirm = { step: 'dept', html: `تمت إضافة القسم: <b>${escapeHtml(created.name)}</b>` };
+          notify(`تمت إضافة القسم «${created.name}»`);
           await loadDepts();
         }));
         if (quickUI.errors.dept) body.appendChild(el(`<p class="field-error">${escapeHtml(quickUI.errors.dept)}</p>`));
@@ -396,6 +506,7 @@ async function renderQuickView() {
           state.stageId = created.id; state.sectionId = null;
           quickUI.expanded.stage = false;
           quickUI.lastConfirm = { step: 'stage', html: `تمت إضافة المرحلة: <b>${escapeHtml(created.name)}</b>` };
+          notify(`تمت إضافة المرحلة «${created.name}»`);
           await loadStages();
         }));
         if (quickUI.errors.stage) body.appendChild(el(`<p class="field-error">${escapeHtml(quickUI.errors.stage)}</p>`));
@@ -435,6 +546,7 @@ async function renderQuickView() {
           state.sectionId = created.id;
           quickUI.expanded.section = false;
           quickUI.lastConfirm = { step: 'section', html: `تمت إضافة الشعبة: <b>${escapeHtml(created.name)}</b>` };
+          notify(`تمت إضافة الشعبة «${created.name}»`);
           await loadSections();
         }));
         if (quickUI.errors.section) body.appendChild(el(`<p class="field-error">${escapeHtml(quickUI.errors.section)}</p>`));
@@ -452,7 +564,7 @@ async function renderQuickView() {
     if (qd.subjects && qd.subjects.length > 0) {
       const names = qd.subjects.slice(0, 3).map(x => escapeHtml(x.name)).join('، ');
       const more = qd.subjects.length > 3 ? ` <span class="muted">+${arDigits(qd.subjects.length - 3)}</span>` : '';
-      subsSummary = `<b>${arDigits(qd.subjects.length)} مواد:</b> ${names}${more}`;
+      subsSummary = `<b>${countSubjects(qd.subjects.length)}:</b> ${names}${more}`;
     }
     const stepSubs = stepShell(4, 'subjects', 'المواد', s.subjects, {
       collapsed: subsCollapsed,
@@ -498,6 +610,7 @@ async function renderQuickView() {
             quickUI.errors.subject = '';
             quickUI.touched.subjects = true;
             quickUI.lastConfirm = { step: 'subjects', html: `تمت إضافة المادة: <b>${escapeHtml(created.name)}</b>` };
+            notify(`تمت إضافة المادة «${created.name}»`);
             await reloadSubjects();
             const rowEl = stepsHost.querySelector(`.q-step[data-step="subjects"] .list-row[data-id="${created.id}"]`);
             flashNew(rowEl);
@@ -523,7 +636,7 @@ async function renderQuickView() {
     const stDone = s.students === 'done';
     const stCollapsed = stDone && !quickUI.touched.students && !quickUI.expanded.students;
     let stSummary = '';
-    if (qd.students && qd.students.length > 0) stSummary = `<b>${arDigits(qd.students.length)} طالباً</b> في الشعبة`;
+    if (qd.students && qd.students.length > 0) stSummary = `<b>${countStudents(qd.students.length)}</b> في الشعبة`;
     const stepSt = stepShell(5, 'students', 'الطلبة', s.students, {
       collapsed: stCollapsed,
       summary: stSummary,
@@ -550,6 +663,7 @@ async function renderQuickView() {
             quickUI.errors.student = '';
             quickUI.touched.students = true;
             quickUI.lastStudent = created;
+            notify(`تمت إضافة الطالب «${created.name}»`);
             await loadStudents();
             const rowEl = stepsHost.querySelector(`.q-step[data-step="students"] .list-row[data-id="${created.id}"]`);
             flashNew(rowEl);
@@ -601,7 +715,7 @@ async function renderQuickView() {
       const finale = el(`<div class="finale-card">
         <div class="finale-text">
           <strong>جاهز لإدخال الدرجات</strong>
-          <span>${n > 0 ? `${arDigits(n)} طالباً و${arDigits(qd.subjects.length)} مواد — ` : ''}سيفتح جدول الدرجات على هذه الشعبة مباشرة دون إعادة اختيار.</span>
+          <span>${n > 0 ? `${countStudents(n)} و${countSubjects(qd.subjects.length)} — ` : ''}سيفتح جدول الدرجات على هذه الشعبة مباشرة دون إعادة اختيار.</span>
         </div>
         <button type="button" class="btn btn-primary btn-lg" id="qGoGrades">${iconHtml('grid')}ابدأ إدخال الدرجات</button>
       </div>`);
@@ -737,7 +851,7 @@ async function renderCatalogView() {
             ${iconHtml('chevronLeft')}
             <span class="row-hint">عرض المراحل</span>
           </button>
-          <span class="muted">${arDigits(d.stage_count)} مراحل — ${arDigits(d.student_count)} طالباً</span>
+          <span class="muted">${countStages(d.stage_count)} — ${countStudents(d.student_count)}</span>
           <button type="button" class="icon-btn" title="تعديل الاسم" aria-label="تعديل اسم ${escapeHtml(d.name)}">${iconHtml('edit')}</button>
           <button type="button" class="icon-btn danger" title="حذف" aria-label="حذف ${escapeHtml(d.name)}">${iconHtml('trash')}</button>
         </div>`);
@@ -1141,7 +1255,7 @@ async function renderStudentsView() {
       injectIcons(listHost);
       return;
     }
-    const count = el(`<p class="grades-count">${arDigits(students.length)} طالباً في هذه الشعبة</p>`);
+    const count = el(`<p class="grades-count">${countStudents(students.length)} في هذه الشعبة</p>`);
     listHost.appendChild(count);
     const stack = el('<div class="list-stack"></div>');
     for (const st of students) {
@@ -1173,7 +1287,7 @@ async function renderStudentsView() {
       return;
     }
     const shown = matches.slice(0, 30);
-    listHost.appendChild(el(`<p class="grades-count">${arDigits(matches.length)} نتيجة${matches.length > 30 ? ` — تُعرض أول ${arDigits(30)}، دقّق البحث لتضييقها` : ''}</p>`));
+    listHost.appendChild(el(`<p class="grades-count">${countResults(matches.length)}${matches.length > 30 ? ` — تُعرض أول ${arDigits(30)}، دقّق البحث لتضييقها` : ''}</p>`));
     const stack = el('<div class="list-stack"></div>');
     for (const st of shown) stack.appendChild(studentRow(st, { context: st.context }));
     listHost.appendChild(stack);
@@ -1239,6 +1353,7 @@ async function renderStudentsView() {
       const created = await apiCall('POST', '/api/admin/students', { name, section_id: Number(secSel.value) });
       newStudentInput.value = '';
       newStudentInput.focus();
+      notify(`تمت إضافة الطالب «${created.name}»`);
       invalidateIndex();
       confirmHost.innerHTML = '';
       const note = el(`<div class="inline-note ok" role="status">${iconHtml('checkCircle')}
@@ -1473,7 +1588,7 @@ async function renderGradesView() {
     if (!host) return;
     const prev = host.querySelector('.inline-note');
     if (prev) prev.remove();
-    const note = el(`<div class="inline-note ok" style="margin:0" role="status">${iconHtml('checkCircle')}<span>تم حفظ درجات ${arDigits(saved)} طالباً بنجاح.</span></div>`);
+    const note = el(`<div class="inline-note ok" style="margin:0" role="status">${iconHtml('checkCircle')}<span>تم حفظ درجات ${countStudents(saved)} بنجاح.</span></div>`);
     host.appendChild(note);
     injectIcons(note);
   }
@@ -1558,7 +1673,7 @@ async function renderGradesView() {
         gradesDirty = false;
         unsavedHost.innerHTML = '';
         saveNote(r.saved);
-        showToast(`تم حفظ درجات ${r.saved} طالب`);
+        showToast(`تم حفظ درجات ${countStudents(r.saved)}`);
         updateStatus();
       } catch (e) { showToast(e.message, true); }
       finally { saveBtn.disabled = false; }
@@ -1642,7 +1757,7 @@ async function renderGradesView() {
         gradesDirty = false;
         unsavedHost.innerHTML = '';
         saveNote(r.saved);
-        showToast(`تم حفظ درجات ${r.saved} طالب`);
+        showToast(`تم حفظ درجات ${countStudents(r.saved)}`);
         updateStatus();
       } catch (e) { showToast(e.message, true); }
       finally { saveBtn.disabled = false; }
@@ -1785,6 +1900,23 @@ window.addEventListener('beforeunload', (e) => {
   e.preventDefault();
   e.returnValue = '';
 });
+
+/* جرس الإشعارات في الترويسة */
+(function wireNotifBell() {
+  const bell = document.getElementById('notifBell');
+  if (!bell) return;
+  bell.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (notifCenter.panelOpen) closeNotifPanel();
+    else openNotifPanel();
+  });
+  document.addEventListener('click', (e) => {
+    if (notifCenter.panelOpen && !e.target.closest('.bell-wrap')) closeNotifPanel();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && notifCenter.panelOpen) closeNotifPanel();
+  });
+})();
 
 function renderBootError() {
   view.innerHTML = '';
