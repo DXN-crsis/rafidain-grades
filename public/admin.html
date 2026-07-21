@@ -5,175 +5,45 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>لوحة الإدارة — إعدادية الرافدين المهنية</title>
   <link rel="stylesheet" href="/css/style.css">
-  <link rel="stylesheet" href="/css/tour.css">
   <link rel="icon" href="/assets/logo.png">
-  <style>
-    .layout { display: flex; min-height: 100vh; }
-    .sidebar {
-      width: 240px; flex-shrink: 0; padding: 1.25rem;
-      display: flex; flex-direction: column; gap: 0.5rem;
-      background: var(--card-bg); border-left: 1px solid var(--card-border);
-      backdrop-filter: blur(18px);
-    }
-    .sidebar .logo-circle { width: 72px; height: 72px; }
-    .sidebar h2 { font-size: var(--fs-md); text-align: center; margin: 0.5rem 0 1rem; }
-    .nav-row { display: flex; flex-direction: column; gap: 0.5rem; flex: 1; min-height: 0; }
-    .nav-btn {
-      display: flex; align-items: center; gap: 0.6rem; width: 100%;
-      padding: 0.7rem 1rem; border: none; border-radius: 12px;
-      background: transparent; color: var(--text); font-family: inherit;
-      font-size: var(--fs-base); font-weight: 700; cursor: pointer; text-align: right;
-      min-height: 44px;
-      transition: background 0.15s;
-    }
-    .nav-btn:hover { background: var(--green-light); }
-    .nav-btn.active { background: var(--green); color: #fff; }
-    .nav-btn svg { width: 18px; height: 18px; }
-    .nav-row .grow { flex: 1; }
-    main { flex: 1; padding: 1.5rem; max-width: 1100px; }
-    .toolbar { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; }
-    .toolbar .input { flex: 1 1 200px; width: auto; min-width: 180px; }
-    select.input { appearance: none; }
-    .list-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.6rem; border-bottom: 1px solid var(--card-border); border-radius: 10px; }
-    .list-row .grow { flex: 1; font-weight: 700; }
-    /* clickable-row affordance: visible without hovering, not just cursor:pointer */
-    .dept-name, .list-row .grow[data-clickable] { cursor: pointer; color: var(--green-dark, var(--green)); }
-    .row-hint { color: var(--text-muted); font-weight: 400; font-size: var(--fs-xs); margin-inline-start: 0.5rem; }
-    .list-row.selected { background: var(--green-light); border-inline-end: 3px solid var(--green); }
-    .list-row.just-added { background: var(--green-light); }
-    .inline-edit { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
-    .inline-edit input { flex: 1 1 140px; }
-    .icon-btn {
-      background: none; border: none; cursor: pointer; color: var(--text-muted);
-      padding: 0.3rem; border-radius: 8px;
-      min-width: 44px; min-height: 44px;
-      display: inline-flex; align-items: center; justify-content: center;
-    }
-    .icon-btn:hover { color: var(--green); background: var(--green-light); }
-    .icon-btn.danger:hover { color: var(--danger); background: rgba(192,57,43,0.1); }
-    .icon-btn svg { width: 17px; height: 17px; }
-    .btn-sm { padding: 0.35rem 0.8rem; font-size: var(--fs-sm); }
-    .toast {
-      position: fixed; bottom: 20px; right: 50%; transform: translateX(50%);
-      background: var(--green); color: #fff; font-weight: 700;
-      padding: 0.7rem 1.6rem; border-radius: 999px; z-index: 100;
-      animation: fadeUp 0.3s ease both;
-    }
-    .toast.error { background: var(--danger); }
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; align-items: start; }
-    @media (max-width: 900px) {
-      .layout { flex-direction: column; }
-      .sidebar {
-        width: 100%; flex-direction: column; gap: 0.5rem;
-        border-left: none; border-bottom: 1px solid var(--card-border);
-        padding: 1rem;
-      }
-      .sidebar .logo-circle { width: 48px; height: 48px; }
-      .sidebar h2 { margin: 0.35rem 0; }
-      .nav-row {
-        flex-direction: row; flex: none; gap: 0.5rem;
-        overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap;
-      }
-      .nav-btn { width: auto; flex-shrink: 0; white-space: nowrap; }
-      .nav-row .grow { display: none; }
-      .grid-2 { grid-template-columns: 1fr; }
-    }
-
-    /* ===== quick-add view ===== */
-    .quick-view .status-line {
-      background: var(--green-light); color: var(--green-dark, var(--green));
-      border-radius: 12px; padding: 0.7rem 1rem; font-weight: 700;
-      margin-bottom: 1.25rem; min-height: 44px; display: flex; align-items: center;
-    }
-    .quick-step {
-      border: 1px solid var(--card-border); border-radius: 14px;
-      padding: 1rem 1.1rem; margin-bottom: 1rem; transition: border-color 0.2s, background 0.2s, opacity 0.2s;
-    }
-    .quick-step[data-state="active"] { border-color: var(--green); background: var(--green-light); }
-    .quick-step[data-state="done"] { border-color: var(--card-border); background: transparent; }
-    .quick-step[data-state="waiting"] { opacity: 0.65; }
-    .quick-step .step-head { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.4rem; }
-    .quick-step .step-num {
-      display: inline-flex; align-items: center; justify-content: center;
-      width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
-      background: var(--green); color: #fff; font-weight: 700; font-size: var(--fs-sm, 0.9rem);
-    }
-    .quick-step[data-state="waiting"] .step-num { background: var(--text-muted); }
-    .quick-step .step-head h4 { margin: 0; font-size: 1.05rem; }
-    .quick-step .step-check { color: var(--green); display: inline-flex; }
-    .quick-step .step-check svg { width: 20px; height: 20px; }
-    .quick-step .step-hint { color: var(--text-muted); font-size: 0.9rem; margin: 0 0 0.7rem; }
-    .quick-step .step-waiting-msg { color: var(--text-muted); font-size: 0.9rem; font-weight: 700; }
-    .picker-row { align-items: flex-start; }
-    .picker { display: flex; flex-direction: column; gap: 0.4rem; flex: 1 1 200px; }
-    .inline-add { display: flex; gap: 0.4rem; flex-wrap: wrap; }
-    .inline-add .input { flex: 1 1 140px; }
-    .inline-confirm {
-      display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
-      background: var(--green-light); color: var(--text); border-radius: 10px;
-      padding: 0.6rem 0.9rem; margin: 0.6rem 0; font-weight: 600;
-    }
-    .grade-rule-hint { color: var(--text-muted); font-size: 0.85rem; margin: -0.4rem 0 0.8rem; }
-    .fo-list { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
-    .fo-row {
-      display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap;
-      border-bottom: 1px solid var(--card-border); padding: 0.5rem 0;
-    }
-    .fo-row .fo-name { flex: 1 1 200px; font-weight: 700; }
-    .fo-row .fo-grade-wrap { display: flex; flex-direction: column; flex: 0 0 140px; }
-    .fo-row .fo-grade-wrap small { color: var(--text-muted); font-size: 0.78rem; margin-top: 0.2rem; }
-    .fo-row input.fo-grade { width: 100%; }
-    .grades-count { font-weight: 700; margin-bottom: 0.8rem; }
-
-    /* real-time visual pointer: exactly one control marked "do this next".
-       The pulsing glow is an animation, so @media (prefers-reduced-motion:
-       reduce) in style.css already disables it globally — a static ring
-       (the outline/box-shadow base state) remains. */
-    .next-target {
-      outline: 3px solid var(--green);
-      outline-offset: 2px;
-      border-radius: 10px;
-      box-shadow: 0 0 0 0 rgba(13,122,63,0.4);
-      animation: nextTargetPulse 1.7s ease-in-out infinite;
-    }
-    @keyframes nextTargetPulse {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(13,122,63,0.35); }
-      50% { box-shadow: 0 0 0 7px rgba(13,122,63,0); }
-    }
-    .copy-btn { display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap; }
-
-    @media (max-width: 480px) {
-      .quick-step .toolbar .input, .quick-step .toolbar select, .quick-step .toolbar button { flex: 1 1 100%; }
-      .picker { flex: 1 1 100%; }
-      .fo-row { flex-direction: column; align-items: stretch; }
-      .fo-row .fo-grade-wrap { flex-basis: auto; }
-    }
-    .quick-view .input, .quick-view select, .quick-view button,
-    .fo-row .input, .fo-row button { min-height: 44px; }
-  </style>
 </head>
-<body>
-  <button class="theme-toggle" data-theme-icon onclick="toggleTheme()" aria-label="تبديل الوضع الداكن"></button>
-  <div class="layout">
-    <aside class="sidebar">
-      <div class="logo-circle"><img src="/assets/logo.png" alt="شعار المدرسة"></div>
-      <h2>إعدادية الرافدين المهنية<br><span style="color:var(--text-muted);font-size:0.8rem">لوحة الإدارة</span></h2>
-      <nav class="nav-row">
-        <button class="nav-btn" data-route="quick" data-tour="nav-quick"><span data-icon="zap"></span>الإضافة السريعة</button>
-        <button class="nav-btn" data-route="catalog"><span data-icon="layers"></span>الأقسام والمراحل</button>
-        <button class="nav-btn" data-route="students"><span data-icon="users"></span>الطلبة</button>
-        <button class="nav-btn" data-route="grades"><span data-icon="grid"></span>الدرجات</button>
-        <button class="nav-btn" data-route="password"><span data-icon="lock"></span>كلمة المرور</button>
-        <button class="nav-btn" id="tourReplayBtn"><span data-icon="book"></span>شرح الاستخدام</button>
-        <div class="grow"></div>
-        <button class="nav-btn" id="logoutBtn"><span data-icon="logout"></span>تسجيل الخروج</button>
-      </nav>
-    </aside>
-    <main id="view"></main>
+<body class="page-admin">
+  <a class="skip-link" href="#view">تخطي إلى المحتوى</a>
+
+  <header class="admin-band">
+    <div class="waves waves-band" aria-hidden="true">
+      <svg class="wave w3" viewBox="0 0 1440 120" preserveAspectRatio="none"><path d="M0 52 C60 82 120 82 180 52 C240 22 300 22 360 52 C420 82 480 82 540 52 C600 22 660 22 720 52 C780 82 840 82 900 52 C960 22 1020 22 1080 52 C1140 82 1200 82 1260 52 C1320 22 1380 22 1440 52 L1440 120 L0 120 Z"/></svg>
+      <svg class="wave w2" viewBox="0 0 1440 120" preserveAspectRatio="none"><path d="M0 64 C60 88 120 88 180 64 C240 40 300 40 360 64 C420 88 480 88 540 64 C600 40 660 40 720 64 C780 88 840 88 900 64 C960 40 1020 40 1080 64 C1140 88 1200 88 1260 64 C1320 40 1380 40 1440 64 L1440 120 L0 120 Z"/></svg>
+      <svg class="wave w1" viewBox="0 0 1440 120" preserveAspectRatio="none"><path d="M0 76 C60 60 120 60 180 76 C240 92 300 92 360 76 C420 60 480 60 540 76 C600 92 660 92 720 76 C780 60 840 60 900 76 C960 92 1020 92 1080 76 C1140 60 1200 60 1260 76 C1320 92 1380 92 1440 76 L1440 120 L0 120 Z"/></svg>
+    </div>
+    <div class="band-inner">
+      <div class="band-brand">
+        <img class="band-logo" src="/assets/logo.png" alt="">
+        <div class="band-titles">
+          <span class="band-name">إعدادية الرافدين المهنية</span>
+          <span class="band-role">لوحة إدارة النتائج</span>
+        </div>
+      </div>
+      <div class="band-actions">
+        <button class="icon-btn band-btn" data-theme-icon onclick="toggleTheme()" aria-label="تبديل الوضع الداكن"></button>
+        <button class="icon-btn band-btn" id="logoutBtn" title="تسجيل الخروج" aria-label="تسجيل الخروج"><span data-icon="logout"></span></button>
+      </div>
+    </div>
+  </header>
+
+  <div class="admin-shell">
+    <nav class="admin-nav" id="adminNav" aria-label="التنقل الرئيسي">
+      <button class="nav-btn" data-route="quick"><span data-icon="zap"></span>الإضافة السريعة</button>
+      <button class="nav-btn" data-route="catalog"><span data-icon="layers"></span>الأقسام والمراحل</button>
+      <button class="nav-btn" data-route="students"><span data-icon="users"></span>الطلبة</button>
+      <button class="nav-btn" data-route="grades"><span data-icon="grid"></span>الدرجات</button>
+      <button class="nav-btn" data-route="password"><span data-icon="lock"></span>كلمة المرور</button>
+    </nav>
+    <main class="admin-main" id="view"></main>
   </div>
+
   <script src="/js/icons.js"></script>
   <script src="/js/theme.js"></script>
   <script src="/js/admin.js"></script>
-  <script src="/js/tour.js"></script>
 </body>
 </html>
