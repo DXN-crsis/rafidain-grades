@@ -1,4 +1,16 @@
-/* ===== helpers ===== */
+/* ==========================================================================
+   لوحة إدارة النتائج — v4
+   بنية الشيفرة: مساعدات عامة ثم شاشة لكل دالة render ثم الموجّه والتمهيد.
+   قواعد ثابتة:
+   - كل نص قادم من قاعدة البيانات يمر عبر escapeHtml قبل أي innerHTML.
+   - لا window.prompt ولا alert ولا confirm — كل التأكيدات عناصر مضمّنة.
+   - كل فشل شبكة يعرض جملة عربية واحدة موحدة (NET_ERR).
+   - مؤشر «التالي» (.next-target) على عنصر واحد فقط في أي لحظة.
+   ========================================================================== */
+
+const NET_ERR = 'تعذر الاتصال بالخادم. تأكد من تشغيل الخادم ثم حاول مرة أخرى.';
+
+/* ===== مساعدات عامة ===== */
 async function apiCall(method, url, body) {
   let res;
   try {
@@ -8,11 +20,8 @@ async function apiCall(method, url, body) {
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
-    // Network-level failure (server down, connection dropped, offline, etc.)
-    // — fetch() throws a native English TypeError here. Never show that;
-    // match the Arabic message public/js/student.js already uses for the
-    // same situation.
-    throw new Error('تعذر الاتصال بالخادم. تأكد من تشغيل الخادم ثم حاول مرة أخرى');
+    // فشل على مستوى الشبكة — fetch يرمي خطأ إنكليزياً تقنياً؛ لا يظهر أبداً.
+    throw new Error(NET_ERR);
   }
   if (res.status === 401) { location.href = '/admin-login.html'; throw new Error('انتهت الجلسة — يجري تحويلك لتسجيل الدخول'); }
   const data = await res.json().catch(() => null);
@@ -24,9 +33,10 @@ function showToast(msg, isError = false) {
   document.querySelectorAll('.toast').forEach(t => t.remove());
   const t = document.createElement('div');
   t.className = 'toast' + (isError ? ' error' : '');
+  t.setAttribute('role', 'status');
   t.textContent = msg;
   document.body.appendChild(t);
-  setTimeout(() => t.remove(), 2600);
+  setTimeout(() => t.remove(), isError ? 4200 : 2600);
 }
 
 function el(html) {
@@ -41,22 +51,20 @@ function escapeHtml(s) {
   })[c]);
 }
 
-function injectIcons(root = document) {
-  root.querySelectorAll('[data-icon]').forEach(n => { n.innerHTML = window.icons[n.dataset.icon] || ''; });
-}
-
-// Converts western digits to Arabic-Indic digits for plain-language UI text
-// (counts, status sentences). Exam numbers themselves stay western-digit —
-// they must match exactly what a student types on the public login page.
+// أرقام عربية-هندية لنصوص الحالة والعدّ فقط. الأرقام الامتحانية تبقى
+// غربية دائماً — يجب أن تطابق ما يكتبه الطالب في صفحة الاستعلام حرفياً.
 function arDigits(n) {
   return String(n).replace(/[0-9]/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
 }
 
-// Rewrites a backend error into "what to do" phrasing instead of "what failed",
-// per the real-time-guidance requirement: never leave a teacher with a dead end.
+// يعيد صياغة خطأ الخادم إلى «ما العمل الآن» بدل «ما الذي فشل».
 function friendlyError(msg) {
-  if (/موجود مسبقاً/.test(msg)) return `${msg} — جرّب اسماً آخر`;
+  if (/موجود مسبقاً|موجودة مسبقاً/.test(msg)) return `${msg} — جرّب اسماً آخر.`;
   return msg;
+}
+
+function iconHtml(name) {
+  return `<span data-icon="${name}"></span>`;
 }
 
 async function copyToClipboard(text) {
@@ -80,14 +88,25 @@ async function copyToClipboard(text) {
   }
 }
 
-// Replaces the native prompt() dialog for renaming a list item with an
-// inline text field in the app's own design system. nameSpan is swapped
-// for an input + حفظ/إلغاء; onCancel is responsible for putting the view
-// back the way it was (the caller's list already knows how to do that,
-// typically by re-rendering from the server).
+// زر نسخ موحّد: ينسخ الرقم ويؤكد على الزر نفسه لحظة النجاح.
+function wireCopyButton(btn, value) {
+  const original = btn.innerHTML;
+  btn.addEventListener('click', async () => {
+    const ok = await copyToClipboard(value);
+    if (ok) {
+      btn.innerHTML = `${iconHtml('check')}نُسخ`;
+      injectIcons(btn);
+      setTimeout(() => { btn.innerHTML = original; injectIcons(btn); }, 1600);
+    } else {
+      showToast('تعذر النسخ — انسخ الرقم يدوياً', true);
+    }
+  });
+}
+
+// استبدال نافذة prompt: تعديل الاسم داخل الصف نفسه بحقل + حفظ/إلغاء.
 function startInlineRename(nameSpan, currentName, { onSave, onCancel }) {
   const wrap = el(`<span class="grow inline-edit">
-    <input class="input" value="${escapeHtml(currentName)}">
+    <input class="input" value="${escapeHtml(currentName)}" aria-label="الاسم الجديد">
     <button class="btn btn-primary btn-sm" data-save>حفظ</button>
     <button class="btn btn-ghost btn-sm" data-cancel>إلغاء</button>
   </span>`);
@@ -109,703 +128,1071 @@ function startInlineRename(nameSpan, currentName, { onSave, onCancel }) {
   });
 }
 
-// Briefly highlights a freshly-created row so a teacher can see where their
-// action landed. A plain class toggle on a JS timer, not a CSS animation/
-// transition, so it still shows under prefers-reduced-motion.
+// استبدال نافذة confirm: شريط تأكيد مضمّن يظهر تحت الصف المعني مباشرة.
+function confirmRow(row, { message, confirmLabel = 'تأكيد الحذف', neutral = false, onConfirm }) {
+  const existing = row.parentElement && row.parentElement.querySelector(':scope > .confirm-strip');
+  if (existing) existing.remove();
+  const strip = el(`<div class="confirm-strip${neutral ? ' neutral' : ''}" role="group" aria-label="تأكيد">
+    <span class="confirm-msg">${escapeHtml(message)}</span>
+    <button class="btn btn-sm ${neutral ? 'btn-primary' : 'btn-danger-solid'}" data-yes>${escapeHtml(confirmLabel)}</button>
+    <button class="btn btn-ghost btn-sm" data-no>إلغاء</button>
+  </div>`);
+  row.insertAdjacentElement('afterend', strip);
+  const yes = strip.querySelector('[data-yes]');
+  const no = strip.querySelector('[data-no]');
+  no.focus();
+  no.onclick = () => strip.remove();
+  strip.addEventListener('keydown', e => { if (e.key === 'Escape') strip.remove(); });
+  yes.onclick = async () => {
+    yes.disabled = true; no.disabled = true;
+    try { await onConfirm(); strip.remove(); }
+    catch (e) { showToast(e.message, true); strip.remove(); }
+  };
+}
+
+// إبراز صف أُنشئ للتو — صنف على مؤقّت JS لا حركة CSS،
+// فيبقى ظاهراً حتى مع تفعيل «تقليل الحركة».
 function flashNew(rowEl) {
   if (!rowEl) return;
   rowEl.classList.add('just-added');
   setTimeout(() => rowEl.classList.remove('just-added'), 2200);
 }
 
+function sklRows(n = 3) {
+  return `<div aria-hidden="true">${'<div class="skl"></div>'.repeat(n)}</div>`;
+}
+
+function emptyStateHtml(icon, title, sub) {
+  return `<div class="empty-state">${iconHtml(icon)}<p>${escapeHtml(title)}</p>${sub ? `<p class="empty-sub">${escapeHtml(sub)}</p>` : ''}</div>`;
+}
+
 const view = document.getElementById('view');
 
-/* ===== state shared across views ===== */
+/* ===== حالة مشتركة بين الشاشات ===== */
 const state = { deptId: null, stageId: null, sectionId: null, subjectId: null };
 
-/* ===== quick view: one screen, four steps, no re-picking ===== */
+/* ==========================================================================
+   شاشة الإضافة السريعة — خمس خطوات على مسار واحد، دون مغادرة الشاشة
+   ========================================================================== */
+const quickUI = {
+  expanded: { dept: false, stage: false, section: false, subjects: false },
+  touched: { subjects: false, students: false },
+  drafts: { dept: '', stage: '', section: '', subject: '', subjectMode: 'final_only', student: '' },
+  errors: {},
+  lastConfirm: null,        // { step: 'dept'|'stage'|'section'|'subjects', html }
+  lastStudent: null,        // { name, exam_number }
+};
+
 async function renderQuickView() {
   view.innerHTML = '';
-  const card = el(`<div class="glass-card fade-in quick-view">
-    <h3 style="margin-bottom:0.6rem">الإضافة السريعة</h3>
-    <p style="color:var(--text-muted);margin-bottom:1rem">أضف كل شيء من هذه الشاشة — دون الحاجة للتنقل بين صفحات متعددة.</p>
-    <p class="status-line" data-tour="status-line"></p>
+  const qd = { depts: null, stages: null, sections: null, subjects: null, students: null };
+  quickUI.expanded = { dept: false, stage: false, section: false, subjects: false };
+  quickUI.touched = { subjects: false, students: false };
+  quickUI.errors = {};
+  quickUI.lastConfirm = null;
+  quickUI.lastStudent = null;
 
-    <section class="quick-step" data-tour="quick-where" id="qStepWhere">
-      <div class="step-head">
-        <span class="step-num">١</span>
-        <h4>أين؟</h4>
-        <span class="step-check" data-icon="check" hidden></span>
-      </div>
-      <p class="step-hint">اختر القسم ثم المرحلة ثم الشعبة. إذا لم تكن موجودة بعد، أنشئها من هنا مباشرة دون مغادرة الشاشة.</p>
-      <div class="step-waiting-msg" hidden></div>
-      <div class="step-body">
-        <div class="toolbar picker-row">
-          <div class="picker" data-picker="dept">
-            <select class="input" id="qDept"></select>
-            <div class="inline-add" id="qDeptAdd" hidden>
-              <input class="input" placeholder="اسم القسم الجديد">
-              <button class="btn btn-primary btn-sm" data-save>حفظ</button>
-              <button class="btn btn-ghost btn-sm" data-cancel>إلغاء</button>
-            </div>
-          </div>
-          <div class="picker" data-picker="stage">
-            <select class="input" id="qStage" disabled></select>
-            <div class="inline-add" id="qStageAdd" hidden>
-              <input class="input" placeholder="اسم المرحلة الجديدة">
-              <button class="btn btn-primary btn-sm" data-save>حفظ</button>
-              <button class="btn btn-ghost btn-sm" data-cancel>إلغاء</button>
-            </div>
-          </div>
-          <div class="picker" data-picker="section">
-            <select class="input" id="qSec" disabled></select>
-            <div class="inline-add" id="qSecAdd" hidden>
-              <input class="input" placeholder="اسم الشعبة الجديدة">
-              <button class="btn btn-primary btn-sm" data-save>حفظ</button>
-              <button class="btn btn-ghost btn-sm" data-cancel>إلغاء</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+  const root = el(`<div class="quick-flow rise">
+    <h2 class="view-title">الإضافة السريعة</h2>
+    <p class="view-sub">جهّز كل شيء من شاشة واحدة: القسم ثم المرحلة ثم الشعبة ثم المواد ثم الطلبة — وصولاً إلى إدخال الدرجات.</p>
+    <div class="status-line">${iconHtml('arrowRight')}<span id="qStatus" aria-live="polite"></span></div>
+    <div id="qSteps"></div>
+    <div id="qFinale"></div>
+  </div>`);
+  view.appendChild(root);
+  injectIcons(root);
+  const stepsHost = root.querySelector('#qSteps');
+  const finaleHost = root.querySelector('#qFinale');
+  const statusEl = root.querySelector('#qStatus');
 
-    <section class="quick-step" data-tour="quick-subjects" id="qStepSubjects">
-      <div class="step-head">
-        <span class="step-num">٢</span>
-        <h4>المواد</h4>
-        <span class="step-check" data-icon="check" hidden></span>
+  /* ---- تحميل البيانات المتسلسل مع الاختيار التلقائي للعنصر الوحيد ---- */
+  async function loadDepts() {
+    qd.depts = null; paint();
+    qd.depts = await apiCall('GET', '/api/admin/departments');
+    if (state.deptId && !qd.depts.some(d => d.id === state.deptId)) state.deptId = null;
+    if (!state.deptId && qd.depts.length === 1) state.deptId = qd.depts[0].id;
+    if (state.deptId) await loadStages(); else paint();
+  }
+  async function loadStages() {
+    qd.stages = null; paint();
+    qd.stages = await apiCall('GET', `/api/admin/stages?department_id=${state.deptId}`);
+    if (state.stageId && !qd.stages.some(s => s.id === state.stageId)) state.stageId = null;
+    if (!state.stageId && qd.stages.length === 1) state.stageId = qd.stages[0].id;
+    if (state.stageId) await loadSections(); else paint();
+  }
+  async function loadSections() {
+    qd.sections = null; qd.subjects = null; paint();
+    const [sections, subjects] = await Promise.all([
+      apiCall('GET', `/api/admin/sections?stage_id=${state.stageId}`),
+      apiCall('GET', `/api/admin/subjects?stage_id=${state.stageId}`),
+    ]);
+    qd.sections = sections;
+    qd.subjects = subjects;
+    if (state.sectionId && !qd.sections.some(s => s.id === state.sectionId)) state.sectionId = null;
+    if (!state.sectionId && qd.sections.length === 1) state.sectionId = qd.sections[0].id;
+    if (state.sectionId) await loadStudents(); else paint();
+  }
+  async function loadStudents() {
+    qd.students = null; paint();
+    qd.students = await apiCall('GET', `/api/admin/students?section_id=${state.sectionId}`);
+    paint();
+  }
+  async function reloadSubjects() {
+    qd.subjects = await apiCall('GET', `/api/admin/subjects?stage_id=${state.stageId}`);
+    paint();
+  }
+
+  /* ---- حساب حالة كل خطوة ---- */
+  function stepStates() {
+    const s = {};
+    s.dept = state.deptId ? 'done' : 'active';
+    s.stage = !state.deptId ? 'waiting' : (state.stageId ? 'done' : 'active');
+    s.section = !state.stageId ? 'waiting' : (state.sectionId ? 'done' : 'active');
+    const subsReady = qd.subjects && qd.subjects.length > 0;
+    s.subjects = !state.sectionId ? 'waiting' : (subsReady ? 'done' : 'active');
+    const stReady = qd.students && qd.students.length > 0;
+    s.students = !state.sectionId || !subsReady ? 'waiting' : (stReady ? 'done' : 'active');
+    return s;
+  }
+
+  function statusText(s) {
+    const sec = state.sectionId && qd.sections ? qd.sections.find(x => x.id === state.sectionId) : null;
+    if (s.dept === 'active') return 'الخطوة ١ من ٥ — اختر القسم أو أضف قسماً جديداً.';
+    if (s.stage === 'active') return 'الخطوة ٢ من ٥ — اختر المرحلة أو أضف مرحلة جديدة.';
+    if (s.section === 'active') return 'الخطوة ٣ من ٥ — اختر الشعبة أو أضف شعبة جديدة.';
+    if (s.subjects === 'active') return 'الخطوة ٤ من ٥ — أضف مواد هذه المرحلة، وتُطبَّق على جميع طلبتها.';
+    if (s.students === 'active') return 'الخطوة ٥ من ٥ — اكتب اسم الطالب الثلاثي واضغط إضافة.';
+    const n = qd.students ? qd.students.length : 0;
+    return `اكتمل الإعداد — ${arDigits(n)} طالباً في ${sec ? sec.name : 'الشعبة'}. اضغط «ابدأ إدخال الدرجات».`;
+  }
+
+  /* ---- لبنات البناء ---- */
+  function pillList(items, selectedId, onPick) {
+    const group = el('<div class="pick-group" role="group"></div>');
+    for (const it of items) {
+      const pill = el(`<button type="button" class="pick-pill" aria-pressed="${it.id === selectedId}">${escapeHtml(it.name)}</button>`);
+      if (it.id === selectedId) pill.innerHTML = `${iconHtml('check')}${escapeHtml(it.name)}`;
+      pill.onclick = () => onPick(it.id);
+      group.appendChild(pill);
+    }
+    return group;
+  }
+
+  function addRowFor(key, placeholder, btnLabel, onAdd) {
+    const row = el(`<div class="add-row">
+      <input class="input" placeholder="${escapeHtml(placeholder)}" aria-label="${escapeHtml(placeholder)}">
+      <button type="button" class="btn btn-soft">${iconHtml('plus')}${escapeHtml(btnLabel)}</button>
+    </div>`);
+    const input = row.querySelector('input');
+    const btn = row.querySelector('button');
+    input.value = quickUI.drafts[key] || '';
+    input.addEventListener('input', () => { quickUI.drafts[key] = input.value; });
+    async function go() {
+      const name = input.value.trim();
+      if (!name) { quickUI.errors[key] = 'اكتب الاسم أولاً.'; paint(); return; }
+      btn.disabled = true;
+      try {
+        await onAdd(name);
+        quickUI.drafts[key] = '';
+        quickUI.errors[key] = '';
+      } catch (e) {
+        quickUI.errors[key] = friendlyError(e.message);
+        paint();
+      }
+    }
+    btn.onclick = go;
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
+    return row;
+  }
+
+  function stepShell(num, key, title, stateName, { summary, waitReason, collapsed }) {
+    const doneNum = stateName === 'done' ? iconHtml('check') : arDigits(num);
+    return el(`<section class="q-step" data-state="${stateName}" data-step="${key}" aria-label="${escapeHtml(title)}">
+      <div class="q-head">
+        <span class="q-num">${doneNum}</span>
+        <span class="q-title">${escapeHtml(title)}</span>
+        ${collapsed && summary ? `<span class="q-summary">${summary}</span>` : ''}
+        ${collapsed ? `<button type="button" class="btn btn-ghost btn-sm q-edit-btn" data-edit>${iconHtml('edit')}<span class="label">تعديل</span></button>` : ''}
       </div>
-      <p class="step-hint">هذه المواد تنطبق على كل طلبة هذه المرحلة — لا حاجة لإعادة إدخالها لكل طالب.</p>
-      <div class="step-waiting-msg" hidden></div>
-      <div class="step-body">
-        <div id="qSubList"></div>
-        <div class="toolbar">
-          <input class="input" id="qNewSub" placeholder="اسم المادة">
-          <select class="input" id="qSubMode">
-            <option value="final_only" selected>الدرجة النهائية فقط</option>
+      ${stateName === 'waiting' ? `<p class="q-wait">${iconHtml('lock')}${escapeHtml(waitReason || '')}</p>` : ''}
+      <div class="q-body" ${collapsed || stateName === 'waiting' ? 'hidden' : ''}></div>
+    </section>`);
+  }
+
+  function confirmNoteHtml(html) {
+    return `<div class="inline-note ok" role="status">${iconHtml('checkCircle')}<span>${html}</span></div>`;
+  }
+
+  /* ---- الرسم الكامل ---- */
+  function paint() {
+    const s = stepStates();
+    statusEl.textContent = statusText(s);
+    stepsHost.innerHTML = '';
+
+    /* الخطوة ١: القسم */
+    const deptDone = s.dept === 'done';
+    const deptCollapsed = deptDone && !quickUI.expanded.dept;
+    const deptObj = qd.depts && state.deptId ? qd.depts.find(d => d.id === state.deptId) : null;
+    const stepDept = stepShell(1, 'dept', 'القسم', s.dept, {
+      collapsed: deptCollapsed,
+      summary: deptObj ? `<b>${escapeHtml(deptObj.name)}</b>` : '',
+    });
+    if (!deptCollapsed) {
+      const body = stepDept.querySelector('.q-body');
+      if (qd.depts === null) body.innerHTML = sklRows(2);
+      else {
+        if (qd.depts.length > 0) {
+          body.appendChild(pillList(qd.depts, state.deptId, id => {
+            state.deptId = id; state.stageId = null; state.sectionId = null;
+            qd.stages = qd.sections = qd.subjects = qd.students = null;
+            quickUI.expanded.dept = false;
+            loadStages().catch(e => showToast(e.message, true));
+          }));
+          body.appendChild(el('<div class="or-sep">أو أضف قسماً جديداً</div>'));
+        } else {
+          body.appendChild(el(`<p class="q-hint">لا توجد أقسام بعد — اكتب اسم القسم الأول (مثل: تقنيات الحاسوب) واضغط إضافة.</p>`));
+        }
+        body.appendChild(addRowFor('dept', 'اسم القسم', 'إضافة القسم', async (name) => {
+          const created = await apiCall('POST', '/api/admin/departments', { name });
+          state.deptId = created.id; state.stageId = null; state.sectionId = null;
+          quickUI.expanded.dept = false;
+          quickUI.lastConfirm = { step: 'dept', html: `تمت إضافة القسم: <b>${escapeHtml(created.name)}</b>` };
+          await loadDepts();
+        }));
+        if (quickUI.errors.dept) body.appendChild(el(`<p class="field-error">${escapeHtml(quickUI.errors.dept)}</p>`));
+      }
+    }
+    if (quickUI.lastConfirm && quickUI.lastConfirm.step === 'dept') {
+      stepDept.appendChild(el(confirmNoteHtml(quickUI.lastConfirm.html)));
+    }
+    stepsHost.appendChild(stepDept);
+
+    /* الخطوة ٢: المرحلة */
+    const stageDone = s.stage === 'done';
+    const stageCollapsed = stageDone && !quickUI.expanded.stage;
+    const stageObj = qd.stages && state.stageId ? qd.stages.find(x => x.id === state.stageId) : null;
+    const stepStage = stepShell(2, 'stage', 'المرحلة', s.stage, {
+      collapsed: stageCollapsed,
+      summary: stageObj ? `<b>${escapeHtml(stageObj.name)}</b>` : '',
+      waitReason: 'اختر القسم أولاً',
+    });
+    if (s.stage !== 'waiting' && !stageCollapsed) {
+      const body = stepStage.querySelector('.q-body');
+      if (qd.stages === null) body.innerHTML = sklRows(2);
+      else {
+        if (qd.stages.length > 0) {
+          body.appendChild(pillList(qd.stages, state.stageId, id => {
+            state.stageId = id; state.sectionId = null;
+            qd.sections = qd.subjects = qd.students = null;
+            quickUI.expanded.stage = false;
+            loadSections().catch(e => showToast(e.message, true));
+          }));
+          body.appendChild(el('<div class="or-sep">أو أضف مرحلة جديدة</div>'));
+        } else {
+          body.appendChild(el(`<p class="q-hint">لا توجد مراحل في هذا القسم بعد — اكتب اسم المرحلة (مثل: المرحلة الثالثة) واضغط إضافة.</p>`));
+        }
+        body.appendChild(addRowFor('stage', 'اسم المرحلة', 'إضافة المرحلة', async (name) => {
+          const created = await apiCall('POST', '/api/admin/stages', { name, department_id: state.deptId });
+          state.stageId = created.id; state.sectionId = null;
+          quickUI.expanded.stage = false;
+          quickUI.lastConfirm = { step: 'stage', html: `تمت إضافة المرحلة: <b>${escapeHtml(created.name)}</b>` };
+          await loadStages();
+        }));
+        if (quickUI.errors.stage) body.appendChild(el(`<p class="field-error">${escapeHtml(quickUI.errors.stage)}</p>`));
+      }
+    }
+    if (quickUI.lastConfirm && quickUI.lastConfirm.step === 'stage') {
+      stepStage.appendChild(el(confirmNoteHtml(quickUI.lastConfirm.html)));
+    }
+    stepsHost.appendChild(stepStage);
+
+    /* الخطوة ٣: الشعبة */
+    const secDone = s.section === 'done';
+    const secCollapsed = secDone && !quickUI.expanded.section;
+    const secObj = qd.sections && state.sectionId ? qd.sections.find(x => x.id === state.sectionId) : null;
+    const stepSec = stepShell(3, 'section', 'الشعبة', s.section, {
+      collapsed: secCollapsed,
+      summary: secObj ? `<b>${escapeHtml(secObj.name)}</b>` : '',
+      waitReason: 'اختر المرحلة أولاً',
+    });
+    if (s.section !== 'waiting' && !secCollapsed) {
+      const body = stepSec.querySelector('.q-body');
+      if (qd.sections === null) body.innerHTML = sklRows(2);
+      else {
+        if (qd.sections.length > 0) {
+          body.appendChild(pillList(qd.sections, state.sectionId, id => {
+            state.sectionId = id;
+            qd.students = null;
+            quickUI.expanded.section = false;
+            loadStudents().catch(e => showToast(e.message, true));
+          }));
+          body.appendChild(el('<div class="or-sep">أو أضف شعبة جديدة</div>'));
+        } else {
+          body.appendChild(el(`<p class="q-hint">لا توجد شعب في هذه المرحلة بعد — اكتب اسم الشعبة (مثل: شعبة أ) واضغط إضافة.</p>`));
+        }
+        body.appendChild(addRowFor('section', 'اسم الشعبة', 'إضافة الشعبة', async (name) => {
+          const created = await apiCall('POST', '/api/admin/sections', { name, stage_id: state.stageId });
+          state.sectionId = created.id;
+          quickUI.expanded.section = false;
+          quickUI.lastConfirm = { step: 'section', html: `تمت إضافة الشعبة: <b>${escapeHtml(created.name)}</b>` };
+          await loadSections();
+        }));
+        if (quickUI.errors.section) body.appendChild(el(`<p class="field-error">${escapeHtml(quickUI.errors.section)}</p>`));
+      }
+    }
+    if (quickUI.lastConfirm && quickUI.lastConfirm.step === 'section') {
+      stepSec.appendChild(el(confirmNoteHtml(quickUI.lastConfirm.html)));
+    }
+    stepsHost.appendChild(stepSec);
+
+    /* الخطوة ٤: المواد */
+    const subsDone = s.subjects === 'done';
+    const subsCollapsed = subsDone && !quickUI.expanded.subjects && !quickUI.touched.subjects;
+    let subsSummary = '';
+    if (qd.subjects && qd.subjects.length > 0) {
+      const names = qd.subjects.slice(0, 3).map(x => escapeHtml(x.name)).join('، ');
+      const more = qd.subjects.length > 3 ? ` <span class="muted">+${arDigits(qd.subjects.length - 3)}</span>` : '';
+      subsSummary = `<b>${arDigits(qd.subjects.length)} مواد:</b> ${names}${more}`;
+    }
+    const stepSubs = stepShell(4, 'subjects', 'المواد', s.subjects, {
+      collapsed: subsCollapsed,
+      summary: subsSummary,
+      waitReason: 'اختر الشعبة أولاً',
+    });
+    if (s.subjects !== 'waiting' && !subsCollapsed) {
+      const body = stepSubs.querySelector('.q-body');
+      body.appendChild(el('<p class="q-hint">المواد تخص المرحلة كاملة — تُطبَّق تلقائياً على جميع شعبها وطلبتها.</p>'));
+      if (qd.subjects === null) body.appendChild(el(sklRows(2)));
+      else {
+        if (qd.subjects.length > 0) {
+          const list = el('<div class="list-stack"></div>');
+          for (const sb of qd.subjects) {
+            const modeLabel = sb.grade_mode === 'full' ? 'سجل كامل' : 'نهائية فقط';
+            list.appendChild(el(`<div class="list-row" data-id="${sb.id}">
+              <span class="grow">${escapeHtml(sb.name)}</span>
+              <span class="badge badge-mode${sb.grade_mode === 'full' ? ' full' : ''}">${escapeHtml(modeLabel)}</span>
+            </div>`));
+          }
+          body.appendChild(list);
+        }
+        const addRow = el(`<div class="add-row" style="margin-top:${qd.subjects.length ? 'var(--space-3)' : '0'}">
+          <input class="input" id="qSubName" placeholder="اسم المادة" aria-label="اسم المادة">
+          <select class="input" id="qSubMode" aria-label="نوع سجل الدرجات">
+            <option value="final_only">الدرجة النهائية فقط — الأسهل</option>
             <option value="full">سجل درجات كامل</option>
           </select>
-          <button class="btn btn-primary" id="qAddSub"><span data-icon="plus"></span>أضف مادة</button>
-        </div>
-      </div>
-    </section>
-
-    <section class="quick-step" data-tour="quick-students" id="qStepStudents">
-      <div class="step-head">
-        <span class="step-num">٣</span>
-        <h4>الطلبة</h4>
-        <span class="step-check" data-icon="check" hidden></span>
-      </div>
-      <p class="step-hint">اكتب اسم الطالب الثلاثي واضغط Enter لإضافته. يحصل كل طالب على رقم امتحاني تلقائياً.</p>
-      <div class="step-waiting-msg" hidden></div>
-      <div class="step-body">
-        <div class="toolbar">
-          <input class="input" id="qNewStudent" placeholder="اسم الطالب الثلاثي">
-          <button class="btn btn-primary" id="qAddStudent"><span data-icon="plus"></span>إضافة</button>
-        </div>
-        <div id="qStudentConfirm"></div>
-        <div id="qStudentList"></div>
-      </div>
-    </section>
-
-    <section class="quick-step" data-tour="quick-grades" id="qStepGrades">
-      <div class="step-head">
-        <span class="step-num">٤</span>
-        <h4>الدرجات</h4>
-        <span class="step-check" data-icon="check" hidden></span>
-      </div>
-      <p class="step-hint">اضغط الزر لإدخال درجات طلبة هذه الشعبة — لن تحتاج لاختيار القسم أو المرحلة أو الشعبة مرة أخرى.</p>
-      <div class="step-waiting-msg" hidden></div>
-      <div class="step-body">
-        <button class="btn btn-primary" id="qGoGrades"><span data-icon="grid"></span>إدخال الدرجات</button>
-      </div>
-    </section>
-  </div>`);
-  view.appendChild(card);
-  injectIcons(card);
-
-  const statusEl = card.querySelector('.status-line');
-  const stepWhereEl = card.querySelector('#qStepWhere');
-  const stepSubjectsEl = card.querySelector('#qStepSubjects');
-  const stepStudentsEl = card.querySelector('#qStepStudents');
-  const stepGradesEl = card.querySelector('#qStepGrades');
-
-  let depts = [];
-  let stages = [];
-  let sections = [];
-  let subjects = [];
-  let students = [];
-
-  /* ---- generic "pick or create inline" select ---- */
-  function makePicker(select, addRow, { placeholder, fetchItems, createItem, onSelect }) {
-    const input = addRow.querySelector('input');
-    const saveBtn = addRow.querySelector('[data-save]');
-    const cancelBtn = addRow.querySelector('[data-cancel]');
-    let items = [];
-
-    function renderOptions(selectedId) {
-      select.innerHTML = '';
-      select.appendChild(el(`<option value="">${placeholder}</option>`));
-      for (const it of items) select.appendChild(el(`<option value="${it.id}">${escapeHtml(it.name)}</option>`));
-      select.appendChild(el('<option value="__new__">+ إضافة جديد</option>'));
-      select.value = selectedId != null ? String(selectedId) : '';
-    }
-
-    async function load(preferId) {
-      items = await fetchItems();
-      select.disabled = false;
-      let autoId = null;
-      if (preferId != null && items.some(i => i.id === preferId)) autoId = preferId;
-      else if (items.length === 1) autoId = items[0].id;
-      renderOptions(autoId);
-      onSelect(autoId, items);
-      return items;
-    }
-
-    function reset() {
-      items = [];
-      select.innerHTML = `<option value="">${placeholder}</option>`;
-      select.disabled = true;
-      addRow.hidden = true;
-      select.hidden = false;
-    }
-
-    select.addEventListener('change', () => {
-      if (select.value === '__new__') {
-        select.hidden = true;
-        addRow.hidden = false;
-        input.value = '';
-        input.focus();
-        return;
+          <button type="button" class="btn btn-soft">${iconHtml('plus')}إضافة المادة</button>
+        </div>`);
+        const nameInput = addRow.querySelector('#qSubName');
+        const modeSel = addRow.querySelector('#qSubMode');
+        nameInput.value = quickUI.drafts.subject || '';
+        modeSel.value = quickUI.drafts.subjectMode || 'final_only';
+        nameInput.addEventListener('input', () => { quickUI.drafts.subject = nameInput.value; });
+        modeSel.addEventListener('change', () => { quickUI.drafts.subjectMode = modeSel.value; });
+        async function addSubject() {
+          const name = nameInput.value.trim();
+          if (!name) { quickUI.errors.subject = 'اكتب اسم المادة أولاً.'; paint(); return; }
+          try {
+            const created = await apiCall('POST', '/api/admin/subjects', { name, stage_id: state.stageId, grade_mode: modeSel.value });
+            quickUI.drafts.subject = '';
+            quickUI.errors.subject = '';
+            quickUI.touched.subjects = true;
+            quickUI.lastConfirm = { step: 'subjects', html: `تمت إضافة المادة: <b>${escapeHtml(created.name)}</b>` };
+            await reloadSubjects();
+            const rowEl = stepsHost.querySelector(`.q-step[data-step="subjects"] .list-row[data-id="${created.id}"]`);
+            flashNew(rowEl);
+            const again = stepsHost.querySelector('#qSubName');
+            if (again) again.focus();
+          } catch (e) {
+            quickUI.errors.subject = friendlyError(e.message);
+            paint();
+          }
+        }
+        addRow.querySelector('button').onclick = addSubject;
+        nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addSubject(); } });
+        body.appendChild(addRow);
+        if (quickUI.errors.subject) body.appendChild(el(`<p class="field-error">${escapeHtml(quickUI.errors.subject)}</p>`));
       }
-      onSelect(select.value ? Number(select.value) : null, items);
+    }
+    if (quickUI.lastConfirm && quickUI.lastConfirm.step === 'subjects' && !subsCollapsed) {
+      stepSubs.appendChild(el(confirmNoteHtml(quickUI.lastConfirm.html)));
+    }
+    stepsHost.appendChild(stepSubs);
+
+    /* الخطوة ٥: الطلبة */
+    const stDone = s.students === 'done';
+    const stCollapsed = stDone && !quickUI.touched.students && !quickUI.expanded.students;
+    let stSummary = '';
+    if (qd.students && qd.students.length > 0) stSummary = `<b>${arDigits(qd.students.length)} طالباً</b> في الشعبة`;
+    const stepSt = stepShell(5, 'students', 'الطلبة', s.students, {
+      collapsed: stCollapsed,
+      summary: stSummary,
+      waitReason: !state.sectionId ? 'اختر الشعبة أولاً' : 'أضف مادة واحدة على الأقل أولاً',
     });
+    if (s.students !== 'waiting' && !stCollapsed) {
+      const body = stepSt.querySelector('.q-body');
+      body.appendChild(el('<p class="q-hint">يولّد النظام لكل طالب رقماً امتحانياً من ٨ أرقام تلقائياً — سلّمه للطالب ليستعلم به عن نتيجته.</p>'));
+      if (qd.students === null) body.appendChild(el(sklRows(3)));
+      else {
+        const addRow = el(`<div class="add-row">
+          <input class="input" id="qStudentName" placeholder="اسم الطالب الثلاثي" aria-label="اسم الطالب الثلاثي">
+          <button type="button" class="btn btn-primary">${iconHtml('plus')}إضافة الطالب</button>
+        </div>`);
+        const input = addRow.querySelector('input');
+        input.value = quickUI.drafts.student || '';
+        input.addEventListener('input', () => { quickUI.drafts.student = input.value; });
+        async function addStudent() {
+          const name = input.value.trim();
+          if (!name) { quickUI.errors.student = 'اكتب اسم الطالب أولاً.'; paint(); return; }
+          try {
+            const created = await apiCall('POST', '/api/admin/students', { name, section_id: state.sectionId });
+            quickUI.drafts.student = '';
+            quickUI.errors.student = '';
+            quickUI.touched.students = true;
+            quickUI.lastStudent = created;
+            await loadStudents();
+            const rowEl = stepsHost.querySelector(`.q-step[data-step="students"] .list-row[data-id="${created.id}"]`);
+            flashNew(rowEl);
+            const again = stepsHost.querySelector('#qStudentName');
+            if (again) again.focus();
+          } catch (e) {
+            quickUI.errors.student = friendlyError(e.message);
+            paint();
+          }
+        }
+        addRow.querySelector('button').onclick = addStudent;
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addStudent(); } });
+        body.appendChild(addRow);
+        if (quickUI.errors.student) body.appendChild(el(`<p class="field-error">${escapeHtml(quickUI.errors.student)}</p>`));
 
-    saveBtn.addEventListener('click', async () => {
-      const name = input.value.trim();
-      if (!name) { showToast('اكتب اسماً أولاً', true); return; }
-      try {
-        const created = await createItem(name);
-        showToast('تمت الإضافة');
-        addRow.hidden = true;
-        select.hidden = false;
-        await load(created.id);
-      } catch (e) { showToast(friendlyError(e.message), true); }
-    });
-    input.addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); saveBtn.click(); }
-    });
-    cancelBtn.addEventListener('click', () => {
-      addRow.hidden = true;
-      select.hidden = false;
-      renderOptions(null);
-    });
+        if (quickUI.lastStudent) {
+          const c = quickUI.lastStudent;
+          const note = el(`<div class="inline-note ok" role="status">${iconHtml('checkCircle')}
+            <span>تمت إضافة <b>${escapeHtml(c.name)}</b> — الرقم الامتحاني: <span class="exam-chip">${escapeHtml(c.exam_number)}</span></span>
+            <button type="button" class="btn btn-ghost btn-sm">${iconHtml('copy')}نسخ الرقم</button>
+          </div>`);
+          wireCopyButton(note.querySelector('button'), c.exam_number);
+          body.appendChild(note);
+        }
 
-    return {
-      load, reset,
-      get items() { return items; },
-      // Whichever control is actually visible right now — the select, or
-      // the inline "add new" text input when that mode is active. Used to
-      // aim the real-time visual pointer at something the teacher can see.
-      visibleControl() { return addRow.hidden ? select : input; },
-    };
-  }
-
-  function handleDeptSelected(id) {
-    state.deptId = id;
-    if (id) {
-      stagePicker.load(state.stageId).catch(e => showToast(e.message, true));
-    } else {
-      state.stageId = null; state.sectionId = null;
-      stagePicker.reset(); sectionPicker.reset();
-      clearStep2(); clearStep3();
+        if (qd.students.length === 0) {
+          body.appendChild(el(`<p class="q-hint">لم يُضف أي طالب بعد.</p>`));
+        } else {
+          const list = el('<div class="list-stack"></div>');
+          for (const st of qd.students) {
+            const row = el(`<div class="list-row" data-id="${st.id}">
+              <span class="grow">${escapeHtml(st.name)}</span>
+              <span class="exam-chip">${escapeHtml(st.exam_number)}</span>
+              <button type="button" class="btn btn-ghost btn-sm">${iconHtml('copy')}نسخ</button>
+            </div>`);
+            wireCopyButton(row.querySelector('button'), st.exam_number);
+            list.appendChild(row);
+          }
+          body.appendChild(list);
+        }
+      }
     }
-    refreshUI();
-  }
+    stepsHost.appendChild(stepSt);
 
-  function handleStageSelected(id) {
-    state.stageId = id;
-    if (id) {
-      sectionPicker.load(state.sectionId).catch(e => showToast(e.message, true));
-    } else {
-      state.sectionId = null;
-      sectionPicker.reset();
-      clearStep2(); clearStep3();
-    }
-    refreshUI();
-  }
-
-  function handleSectionSelected(id) {
-    state.sectionId = id;
-    if (id) {
-      loadStep2().catch(e => showToast(e.message, true));
-      loadStep3().catch(e => showToast(e.message, true));
-    } else {
-      clearStep2(); clearStep3();
-    }
-    refreshUI();
-  }
-
-  const deptPicker = makePicker(card.querySelector('#qDept'), card.querySelector('#qDeptAdd'), {
-    placeholder: 'اختر القسم',
-    fetchItems: () => apiCall('GET', '/api/admin/departments').then(r => { depts = r; return r; }),
-    createItem: name => apiCall('POST', '/api/admin/departments', { name }),
-    onSelect: handleDeptSelected,
-  });
-  const stagePicker = makePicker(card.querySelector('#qStage'), card.querySelector('#qStageAdd'), {
-    placeholder: 'اختر المرحلة',
-    fetchItems: () => apiCall('GET', `/api/admin/stages?department_id=${state.deptId}`).then(r => { stages = r; return r; }),
-    createItem: name => apiCall('POST', '/api/admin/stages', { name, department_id: state.deptId }),
-    onSelect: handleStageSelected,
-  });
-  const sectionPicker = makePicker(card.querySelector('#qSec'), card.querySelector('#qSecAdd'), {
-    placeholder: 'اختر الشعبة',
-    fetchItems: () => apiCall('GET', `/api/admin/sections?stage_id=${state.stageId}`).then(r => { sections = r; return r; }),
-    createItem: name => apiCall('POST', '/api/admin/sections', { name, stage_id: state.stageId }),
-    onSelect: handleSectionSelected,
-  });
-
-  /* ---- step 2: subjects ---- */
-  function clearStep2() {
-    subjects = [];
-    const list = stepSubjectsEl.querySelector('#qSubList');
-    if (list) list.innerHTML = '';
-  }
-
-  function renderSubList() {
-    const list = stepSubjectsEl.querySelector('#qSubList');
-    list.innerHTML = '';
-    if (subjects.length === 0) {
-      list.innerHTML = '<p class="muted">لا توجد مواد لهذه المرحلة بعد.</p>';
-      return;
-    }
-    for (const sb of subjects) {
-      const modeLabel = sb.grade_mode === 'full' ? 'سجل كامل' : 'الدرجة النهائية فقط';
-      const row = el(`<div class="list-row"><span class="grow">${escapeHtml(sb.name)} <span class="muted">(${escapeHtml(modeLabel)})</span></span></div>`);
-      list.appendChild(row);
-    }
-  }
-
-  async function loadStep2() {
-    subjects = await apiCall('GET', `/api/admin/subjects?stage_id=${state.stageId}`);
-    renderSubList();
-    refreshUI();
-  }
-
-  card.querySelector('#qAddSub').onclick = async () => {
-    const nameInput = card.querySelector('#qNewSub');
-    const modeSel = card.querySelector('#qSubMode');
-    const name = nameInput.value.trim();
-    if (!name) { showToast('اكتب اسم المادة أولاً', true); return; }
-    if (!state.stageId) { showToast('اختر المرحلة أولاً', true); return; }
-    try {
-      await apiCall('POST', '/api/admin/subjects', { name, stage_id: state.stageId, grade_mode: modeSel.value });
-      nameInput.value = '';
-      showToast('تمت إضافة المادة');
-      await loadStep2();
-    } catch (e) { showToast(friendlyError(e.message), true); }
-  };
-
-  /* ---- step 3: students ---- */
-  function clearStep3() {
-    students = [];
-    const list = stepStudentsEl.querySelector('#qStudentList');
-    if (list) list.innerHTML = '';
-    const confirmBox = stepStudentsEl.querySelector('#qStudentConfirm');
-    if (confirmBox) confirmBox.innerHTML = '';
-  }
-
-  function renderStudentList() {
-    const list = stepStudentsEl.querySelector('#qStudentList');
-    list.innerHTML = '';
-    if (students.length === 0) {
-      list.innerHTML = '<p class="muted">لم يُضف أي طالب بعد.</p>';
-      return;
-    }
-    for (const st of students) {
-      const row = el(`<div class="list-row">
-        <span class="grow">${escapeHtml(st.name)} <span class="muted" style="direction:ltr">${escapeHtml(st.exam_number)}</span></span>
-        <button class="btn btn-ghost btn-sm copy-btn"><span data-icon="copy"></span>نسخ الرقم</button>
+    /* بطاقة الانطلاق: إدخال الدرجات بالسياق المحفوظ */
+    finaleHost.innerHTML = '';
+    if (state.sectionId && qd.subjects && qd.subjects.length > 0) {
+      const n = qd.students ? qd.students.length : 0;
+      const finale = el(`<div class="finale-card">
+        <div class="finale-text">
+          <strong>جاهز لإدخال الدرجات</strong>
+          <span>${n > 0 ? `${arDigits(n)} طالباً و${arDigits(qd.subjects.length)} مواد — ` : ''}سيفتح جدول الدرجات على هذه الشعبة مباشرة دون إعادة اختيار.</span>
+        </div>
+        <button type="button" class="btn btn-primary btn-lg" id="qGoGrades">${iconHtml('grid')}ابدأ إدخال الدرجات</button>
       </div>`);
-      injectIcons(row);
-      row.querySelector('.copy-btn').onclick = async () => {
-        const ok = await copyToClipboard(st.exam_number);
-        showToast(ok ? 'تم نسخ الرقم الامتحاني' : 'تعذر النسخ — انسخه يدوياً', !ok);
+      finale.querySelector('#qGoGrades').onclick = () => route('grades');
+      finaleHost.appendChild(finale);
+    }
+
+    /* أزرار «تعديل» للخطوات المطوية */
+    stepsHost.querySelectorAll('.q-step [data-edit]').forEach(btn => {
+      btn.onclick = () => {
+        const key = btn.closest('.q-step').dataset.step;
+        quickUI.expanded[key] = true;
+        paint();
       };
-      list.appendChild(row);
-    }
-  }
+    });
 
-  async function loadStep3() {
-    students = await apiCall('GET', `/api/admin/students?section_id=${state.sectionId}`);
-    renderStudentList();
-    refreshUI();
-  }
-
-  async function addStudent() {
-    const input = card.querySelector('#qNewStudent');
-    const name = input.value.trim();
-    if (!name) { showToast('اكتب اسم الطالب أولاً', true); return; }
-    if (!state.sectionId) { showToast('اختر الشعبة أولاً', true); return; }
-    try {
-      const created = await apiCall('POST', '/api/admin/students', { name, section_id: state.sectionId });
-      input.value = '';
-      input.focus();
-      const confirmBox = card.querySelector('#qStudentConfirm');
-      confirmBox.innerHTML = '';
-      const box = el(`<div class="inline-confirm">
-        تمت إضافة الطالب. رقمه الامتحاني: <b style="direction:ltr">${escapeHtml(created.exam_number)}</b>
-        <button class="btn btn-ghost btn-sm copy-btn"><span data-icon="copy"></span>نسخ الرقم</button>
-      </div>`);
-      injectIcons(box);
-      box.querySelector('button').onclick = async () => {
-        const ok = await copyToClipboard(created.exam_number);
-        showToast(ok ? 'تم نسخ الرقم الامتحاني' : 'تعذر النسخ — انسخه يدوياً', !ok);
-      };
-      confirmBox.appendChild(box);
-      await loadStep3();
-    } catch (e) { showToast(friendlyError(e.message), true); }
-  }
-  card.querySelector('#qAddStudent').onclick = addStudent;
-  card.querySelector('#qNewStudent').addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); addStudent(); }
-  });
-
-  /* ---- step 4: go to grades, carrying state forward ---- */
-  card.querySelector('#qGoGrades').onclick = () => route('grades');
-
-  /* ---- step visual states + always-on status line (R9) ---- */
-  function setStepState(stepEl, state_, waitReason) {
-    stepEl.dataset.state = state_;
-    const waitMsg = stepEl.querySelector('.step-waiting-msg');
-    const body = stepEl.querySelector('.step-body');
-    const check = stepEl.querySelector('.step-check');
-    if (state_ === 'waiting') {
-      waitMsg.textContent = waitReason || '';
-      waitMsg.hidden = false;
-      body.hidden = true;
-      check.hidden = true;
+    /* المؤشر المرئي: عنصر واحد فقط */
+    root.querySelectorAll('.next-target').forEach(x => x.classList.remove('next-target'));
+    let target = null;
+    if (s.dept === 'active') {
+      target = qd.depts && qd.depts.length > 0
+        ? stepDept.querySelector('.pick-group')
+        : stepDept.querySelector('.add-row input');
+    } else if (s.stage === 'active') {
+      target = qd.stages && qd.stages.length > 0
+        ? stepStage.querySelector('.pick-group')
+        : stepStage.querySelector('.add-row input');
+    } else if (s.section === 'active') {
+      target = qd.sections && qd.sections.length > 0
+        ? stepSec.querySelector('.pick-group')
+        : stepSec.querySelector('.add-row input');
+    } else if (s.subjects === 'active') {
+      target = stepSubs.querySelector('#qSubName');
+    } else if (s.students === 'active') {
+      target = stepSt.querySelector('#qStudentName');
     } else {
-      waitMsg.hidden = true;
-      body.hidden = false;
-      check.hidden = state_ !== 'done';
+      target = finaleHost.querySelector('#qGoGrades');
     }
-  }
-
-  function updateStepStates() {
-    const step1Done = !!(state.deptId && state.stageId && state.sectionId);
-    setStepState(stepWhereEl, step1Done ? 'done' : 'active');
-
-    if (!state.stageId) {
-      setStepState(stepSubjectsEl, 'waiting', 'اختر القسم والمرحلة أولاً');
-    } else {
-      setStepState(stepSubjectsEl, subjects.length > 0 ? 'done' : 'active');
-    }
-
-    if (!state.sectionId) {
-      setStepState(stepStudentsEl, 'waiting', 'اختر الشعبة أولاً');
-    } else {
-      setStepState(stepStudentsEl, students.length > 0 ? 'done' : 'active');
-    }
-
-    if (!state.sectionId) {
-      setStepState(stepGradesEl, 'waiting', 'اختر الشعبة أولاً');
-    } else if (subjects.length === 0) {
-      setStepState(stepGradesEl, 'waiting', 'أضف مادة واحدة على الأقل في الخطوة ٢');
-    } else {
-      setStepState(stepGradesEl, 'active');
-    }
-  }
-
-  function computeStatus() {
-    if (!state.deptId) return 'اختر القسم أولاً';
-    const dept = depts.find(d => d.id === state.deptId);
-    if (!state.stageId) return `اخترت: ${dept ? dept.name : ''}. الآن اختر المرحلة.`;
-    const stage = stages.find(s => s.id === state.stageId);
-    if (!state.sectionId) return `اخترت: ${stage ? stage.name : ''}. الآن اختر الشعبة.`;
-    if (subjects.length === 0) return 'القسم والمرحلة والشعبة جاهزة. الآن أضف مادة واحدة على الأقل في الخطوة ٢.';
-    if (students.length === 0) return 'جاهز. اكتب اسم الطالب واضغط Enter.';
-    return `جاهز — ${arDigits(students.length)} طالب مسجل. اضغط "إدخال الدرجات" في الخطوة ٤ أو أضف طالباً آخر.`;
-  }
-
-  // Real-time visual pointer: exactly one control is marked as "do this
-  // next" at a time, moving as the teacher progresses. This is separate
-  // from — and in addition to — the status-line sentence.
-  function pointTo(target) {
-    card.querySelectorAll('.next-target').forEach(n => n.classList.remove('next-target'));
     if (target) target.classList.add('next-target');
+
+    injectIcons(root);
   }
 
-  function updatePointer() {
-    if (!state.deptId) { pointTo(deptPicker.visibleControl()); return; }
-    if (!state.stageId) { pointTo(stagePicker.visibleControl()); return; }
-    if (!state.sectionId) { pointTo(sectionPicker.visibleControl()); return; }
-    if (subjects.length === 0) { pointTo(card.querySelector('#qNewSub')); return; }
-    if (students.length === 0) { pointTo(card.querySelector('#qNewStudent')); return; }
-    pointTo(card.querySelector('#qGoGrades'));
-  }
-
-  function refreshUI() {
-    updateStepStates();
-    statusEl.textContent = computeStatus();
-    updatePointer();
-  }
-
-  refreshUI();
-  deptPicker.load(state.deptId).catch(e => showToast(e.message, true));
+  paint();
+  loadDepts().catch(e => { showToast(e.message, true); qd.depts = []; paint(); });
 }
 
-/* ===== catalog view: departments -> stages -> sections + subjects ===== */
+/* ==========================================================================
+   شاشة الأقسام والمراحل — تنقّل تدريجي: أقسام ثم مراحل ثم تفاصيل المرحلة
+   ========================================================================== */
 async function renderCatalogView() {
   view.innerHTML = '';
-  const card = el(`<div class="glass-card fade-in">
-    <h3 style="margin-bottom:1rem">الأقسام والمراحل والشعب والمواد</h3>
-    <div class="grid-2">
-      <div>
-        <div class="toolbar">
-          <input class="input" id="newDept" placeholder="اسم القسم الجديد">
-          <button class="btn btn-primary" id="addDept"><span data-icon="plus"></span>إضافة قسم</button>
-        </div>
-        <div id="deptList"></div>
-      </div>
-      <div id="detailPane"><p style="color:var(--text-muted)">اختر قسماً لعرض مراحله</p></div>
-    </div>
+  const root = el(`<div class="rise">
+    <h2 class="view-title">الأقسام والمراحل</h2>
+    <p class="view-sub">هيكل المدرسة من الأعلى إلى الأسفل: القسم يضم مراحل، والمرحلة تضم شعباً ومواد.</p>
+    <div class="card" id="catCard"></div>
   </div>`);
-  view.appendChild(card);
-  injectIcons(card);
+  view.appendChild(root);
+  const host = root.querySelector('#catCard');
 
-  async function loadDepts(highlightId) {
-    const depts = await apiCall('GET', '/api/admin/departments');
-    const list = card.querySelector('#deptList');
-    list.innerHTML = '';
-    for (const d of depts) {
-      const row = el(`<div class="list-row${d.id === state.deptId ? ' selected' : ''}">
-        <span class="grow dept-name">${escapeHtml(d.name)}<span class="row-hint">عرض المراحل والشعب ›</span></span>
-        <button class="icon-btn" title="تعديل" data-icon="edit"></button>
-        <button class="icon-btn danger" title="حذف" data-icon="trash"></button>
-      </div>`);
-      injectIcons(row);
-      row.querySelector('.dept-name').onclick = () => {
-        state.deptId = d.id;
-        list.querySelectorAll('.list-row').forEach(r => r.classList.remove('selected'));
-        row.classList.add('selected');
-        loadStages(d);
-      };
-      row.querySelector('[title="تعديل"]').onclick = () => {
-        startInlineRename(row.querySelector('.dept-name'), d.name, {
-          onSave: async (name) => {
-            await apiCall('PUT', `/api/admin/departments/${d.id}`, { name });
-            showToast('تم تعديل الاسم');
-            await loadDepts(d.id);
-          },
-          onCancel: () => loadDepts().catch(e => showToast(e.message, true)),
-        });
-      };
-      row.querySelector('[title="حذف"]').onclick = async () => {
-        if (!confirm(`حذف قسم "${d.name}" وكل ما يتبعه من مراحل وشعب وطلبة؟`)) return;
-        try { await apiCall('DELETE', `/api/admin/departments/${d.id}`); loadDepts().catch(e => showToast(e.message, true)); }
-        catch (e) { showToast(e.message, true); }
-      };
-      list.appendChild(row);
-      if (d.id === highlightId) flashNew(row);
+  // cat.level: 'depts' | 'stages' | 'stage'
+  const cat = { level: 'depts', dept: null, stage: null };
+  if (state.deptId) cat.level = 'depts';
+
+  function crumbs() {
+    const bar = el('<nav class="crumbs" aria-label="مسار التنقل"></nav>');
+    const mk = (label, current, onClick) => {
+      const c = el(`<button type="button" class="crumb"${current ? ' aria-current="page"' : ''}>${escapeHtml(label)}</button>`);
+      if (!current) c.onclick = onClick;
+      return c;
+    };
+    bar.appendChild(mk('الأقسام', cat.level === 'depts', () => { cat.level = 'depts'; cat.stage = null; paint(); }));
+    if (cat.dept && cat.level !== 'depts') {
+      bar.appendChild(el(`<span class="crumb-sep">${iconHtml('chevronLeft')}</span>`));
+      bar.appendChild(mk(cat.dept.name, cat.level === 'stages', () => { cat.level = 'stages'; cat.stage = null; paint(); }));
     }
+    if (cat.stage && cat.level === 'stage') {
+      bar.appendChild(el(`<span class="crumb-sep">${iconHtml('chevronLeft')}</span>`));
+      bar.appendChild(mk(cat.stage.name, true));
+    }
+    return bar;
   }
 
-  card.querySelector('#addDept').onclick = async () => {
-    const input = card.querySelector('#newDept');
-    if (!input.value.trim()) return;
+  async function paint() {
+    host.innerHTML = '';
+    host.appendChild(crumbs());
     try {
-      const created = await apiCall('POST', '/api/admin/departments', { name: input.value });
-      input.value = '';
-      showToast('تمت إضافة القسم');
-      loadDepts(created.id).catch(e => showToast(e.message, true));
-    } catch (e) { showToast(friendlyError(e.message), true); }
-  };
+      if (cat.level === 'depts') await paintDepts();
+      else if (cat.level === 'stages') await paintStages();
+      else await paintStage();
+    } catch (e) {
+      showToast(e.message, true);
+      host.appendChild(el(`<div class="inline-note danger">${iconHtml('alert')}<span>${escapeHtml(e.message)}</span></div>`));
+    }
+    injectIcons(host);
+  }
 
-  async function loadStages(dept) {
-    const pane = card.querySelector('#detailPane');
-    pane.innerHTML = '';
-    const box = el(`<div>
-      <h4 style="margin-bottom:0.8rem">مراحل قسم: ${escapeHtml(dept.name)}</h4>
-      <div class="toolbar">
-        <input class="input" id="newStage" placeholder="مثال: المرحلة الثالثة">
-        <button class="btn btn-primary" id="addStage"><span data-icon="plus"></span>إضافة مرحلة</button>
-      </div>
-      <div id="stageList"></div>
+  async function paintDepts(highlightId) {
+    const listHost = el('<div></div>');
+    const addRow = el(`<div class="add-row">
+      <input class="input" placeholder="اسم القسم الجديد (مثل: تقنيات الحاسوب)" aria-label="اسم القسم الجديد">
+      <button type="button" class="btn btn-primary">${iconHtml('plus')}إضافة قسم</button>
     </div>`);
-    pane.appendChild(box);
-    injectIcons(box);
+    const input = addRow.querySelector('input');
+    async function addDept() {
+      const name = input.value.trim();
+      if (!name) { showToast('اكتب اسم القسم أولاً', true); return; }
+      try {
+        const created = await apiCall('POST', '/api/admin/departments', { name });
+        input.value = '';
+        await refresh(created.id);
+      } catch (e) { showToast(friendlyError(e.message), true); }
+    }
+    addRow.querySelector('button').onclick = addDept;
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addDept(); } });
+    host.appendChild(addRow);
+    host.appendChild(listHost);
 
-    async function refresh(highlightId) {
-      const stages = await apiCall('GET', `/api/admin/stages?department_id=${dept.id}`);
-      const list = box.querySelector('#stageList');
-      list.innerHTML = '';
+    async function refresh(hlId) {
+      listHost.innerHTML = sklRows(3);
+      const depts = await apiCall('GET', '/api/admin/departments');
+      listHost.innerHTML = '';
+      if (depts.length === 0) {
+        listHost.innerHTML = emptyStateHtml('layers', 'لا توجد أقسام بعد', 'اكتب اسم القسم الأول في الحقل أعلاه واضغط «إضافة قسم».');
+        injectIcons(listHost);
+        return;
+      }
+      const stack = el('<div class="list-stack"></div>');
+      for (const d of depts) {
+        const row = el(`<div class="list-row${d.id === state.deptId ? ' selected' : ''}" data-id="${d.id}">
+          <button type="button" class="row-link">
+            <span class="dept-name">${escapeHtml(d.name)}</span>
+            ${iconHtml('chevronLeft')}
+            <span class="row-hint">عرض المراحل</span>
+          </button>
+          <span class="muted">${arDigits(d.stage_count)} مراحل — ${arDigits(d.student_count)} طالباً</span>
+          <button type="button" class="icon-btn" title="تعديل الاسم" aria-label="تعديل اسم ${escapeHtml(d.name)}">${iconHtml('edit')}</button>
+          <button type="button" class="icon-btn danger" title="حذف" aria-label="حذف ${escapeHtml(d.name)}">${iconHtml('trash')}</button>
+        </div>`);
+        row.querySelector('.row-link').onclick = () => {
+          state.deptId = d.id;
+          cat.dept = d; cat.level = 'stages'; cat.stage = null;
+          paint();
+        };
+        row.querySelector('[title="تعديل الاسم"]').onclick = () => {
+          startInlineRename(row.querySelector('.row-link'), d.name, {
+            onSave: async (name) => {
+              await apiCall('PUT', `/api/admin/departments/${d.id}`, { name });
+              showToast('تم تعديل الاسم');
+              await refresh(d.id);
+            },
+            onCancel: () => refresh().catch(e => showToast(e.message, true)),
+          });
+        };
+        row.querySelector('[title="حذف"]').onclick = () => {
+          confirmRow(row, {
+            message: `حذف القسم «${d.name}» يحذف معه كل مراحله وشعبه وطلبته ودرجاتهم نهائياً.`,
+            onConfirm: async () => {
+              await apiCall('DELETE', `/api/admin/departments/${d.id}`);
+              if (state.deptId === d.id) { state.deptId = null; state.stageId = null; state.sectionId = null; }
+              showToast('تم حذف القسم');
+              await refresh();
+            },
+          });
+        };
+        stack.appendChild(row);
+        if (d.id === hlId) flashNew(row);
+      }
+      listHost.appendChild(stack);
+      injectIcons(listHost);
+    }
+    await refresh(highlightId);
+  }
+
+  async function paintStages(highlightId) {
+    const d = cat.dept;
+    const addRow = el(`<div class="add-row">
+      <input class="input" placeholder="اسم المرحلة الجديدة (مثل: المرحلة الثالثة)" aria-label="اسم المرحلة الجديدة">
+      <button type="button" class="btn btn-primary">${iconHtml('plus')}إضافة مرحلة</button>
+    </div>`);
+    const listHost = el('<div></div>');
+    const input = addRow.querySelector('input');
+    async function addStage() {
+      const name = input.value.trim();
+      if (!name) { showToast('اكتب اسم المرحلة أولاً', true); return; }
+      try {
+        const created = await apiCall('POST', '/api/admin/stages', { name, department_id: d.id });
+        input.value = '';
+        await refresh(created.id);
+      } catch (e) { showToast(friendlyError(e.message), true); }
+    }
+    addRow.querySelector('button').onclick = addStage;
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addStage(); } });
+    host.appendChild(addRow);
+    host.appendChild(listHost);
+
+    async function refresh(hlId) {
+      listHost.innerHTML = sklRows(3);
+      const stages = await apiCall('GET', `/api/admin/stages?department_id=${d.id}`);
+      listHost.innerHTML = '';
+      if (stages.length === 0) {
+        listHost.innerHTML = emptyStateHtml('layers', 'لا توجد مراحل في هذا القسم بعد', 'اكتب اسم المرحلة في الحقل أعلاه واضغط «إضافة مرحلة».');
+        injectIcons(listHost);
+        return;
+      }
+      const stack = el('<div class="list-stack"></div>');
       for (const s of stages) {
-        const row = el(`<div>
-          <div class="list-row">
-            <span class="grow">${escapeHtml(s.name)}</span>
-            <button class="btn btn-ghost btn-sm" data-act="sections">الشعب</button>
-            <button class="btn btn-ghost btn-sm" data-act="subjects">المواد</button>
-            <button class="icon-btn danger" title="حذف" data-icon="trash"></button>
-          </div>
-          <div class="sub-pane" style="padding-inline-start:1rem"></div>
+        const row = el(`<div class="list-row${s.id === state.stageId ? ' selected' : ''}" data-id="${s.id}">
+          <button type="button" class="row-link">
+            <span>${escapeHtml(s.name)}</span>
+            ${iconHtml('chevronLeft')}
+            <span class="row-hint">الشعب والمواد</span>
+          </button>
+          <button type="button" class="icon-btn" title="تعديل الاسم" aria-label="تعديل اسم ${escapeHtml(s.name)}">${iconHtml('edit')}</button>
+          <button type="button" class="icon-btn danger" title="حذف" aria-label="حذف ${escapeHtml(s.name)}">${iconHtml('trash')}</button>
         </div>`);
-        injectIcons(row);
-        row.querySelector('[title="حذف"]').onclick = async () => {
-          if (!confirm(`حذف "${s.name}" وكل ما يتبعه من شعب ومواد وطلبة؟`)) return;
-          try { await apiCall('DELETE', `/api/admin/stages/${s.id}`); refresh().catch(e => showToast(e.message, true)); }
-          catch (e) { showToast(e.message, true); }
+        row.querySelector('.row-link').onclick = () => {
+          state.stageId = s.id;
+          cat.stage = s; cat.level = 'stage';
+          paint();
         };
-        row.querySelector('[data-act="sections"]').onclick = () => renderSections(s, row.querySelector('.sub-pane'));
-        row.querySelector('[data-act="subjects"]').onclick = () => renderSubjects(s, row.querySelector('.sub-pane'));
-        list.appendChild(row);
-        if (s.id === highlightId) flashNew(row.querySelector('.list-row'));
+        row.querySelector('[title="تعديل الاسم"]').onclick = () => {
+          startInlineRename(row.querySelector('.row-link'), s.name, {
+            onSave: async (name) => {
+              await apiCall('PUT', `/api/admin/stages/${s.id}`, { name });
+              showToast('تم تعديل الاسم');
+              await refresh(s.id);
+            },
+            onCancel: () => refresh().catch(e => showToast(e.message, true)),
+          });
+        };
+        row.querySelector('[title="حذف"]').onclick = () => {
+          confirmRow(row, {
+            message: `حذف المرحلة «${s.name}» يحذف معها كل شعبها وموادها وطلبتها ودرجاتهم نهائياً.`,
+            onConfirm: async () => {
+              await apiCall('DELETE', `/api/admin/stages/${s.id}`);
+              if (state.stageId === s.id) { state.stageId = null; state.sectionId = null; }
+              showToast('تم حذف المرحلة');
+              await refresh();
+            },
+          });
+        };
+        stack.appendChild(row);
+        if (s.id === hlId) flashNew(row);
       }
+      listHost.appendChild(stack);
+      injectIcons(listHost);
     }
-
-    box.querySelector('#addStage').onclick = async () => {
-      const input = box.querySelector('#newStage');
-      if (!input.value.trim()) return;
-      try {
-        const created = await apiCall('POST', '/api/admin/stages', { name: input.value, department_id: dept.id });
-        input.value = '';
-        showToast('تمت إضافة المرحلة');
-        refresh(created.id).catch(e => showToast(e.message, true));
-      } catch (e) { showToast(friendlyError(e.message), true); }
-    };
-    refresh().catch(e => showToast(e.message, true));
+    await refresh(highlightId);
   }
 
-  async function renderSections(stage, pane) {
-    pane.innerHTML = '';
-    const box = el(`<div class="glass-card" style="padding:1rem;margin:0.5rem 0">
-      <div class="toolbar">
-        <input class="input" id="newSec" placeholder="مثال: شعبة أ">
-        <button class="btn btn-primary" id="addSec"><span data-icon="plus"></span>إضافة شعبة</button>
+  async function paintStage() {
+    const s = cat.stage;
+
+    /* --- الشعب --- */
+    const secBlock = el(`<section class="group-block" style="margin-top:0">
+      <h3 class="group-title">${iconHtml('users')}الشعب <span class="muted">— كل طالب ينتمي إلى شعبة واحدة</span></h3>
+      <div class="add-row">
+        <input class="input" placeholder="اسم الشعبة الجديدة (مثل: شعبة أ)" aria-label="اسم الشعبة الجديدة">
+        <button type="button" class="btn btn-primary">${iconHtml('plus')}إضافة شعبة</button>
       </div>
-      <div id="secList"></div>
-    </div>`);
-    pane.appendChild(box);
-    injectIcons(box);
-    async function refresh(highlightId) {
-      const secs = await apiCall('GET', `/api/admin/sections?stage_id=${stage.id}`);
-      const list = box.querySelector('#secList');
-      list.innerHTML = '';
+      <div class="sec-list"></div>
+    </section>`);
+    const secInput = secBlock.querySelector('input');
+    const secList = secBlock.querySelector('.sec-list');
+    async function addSection() {
+      const name = secInput.value.trim();
+      if (!name) { showToast('اكتب اسم الشعبة أولاً', true); return; }
+      try {
+        const created = await apiCall('POST', '/api/admin/sections', { name, stage_id: s.id });
+        secInput.value = '';
+        await refreshSections(created.id);
+      } catch (e) { showToast(friendlyError(e.message), true); }
+    }
+    secBlock.querySelector('.add-row button').onclick = addSection;
+    secInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addSection(); } });
+
+    async function refreshSections(hlId) {
+      secList.innerHTML = sklRows(2);
+      const secs = await apiCall('GET', `/api/admin/sections?stage_id=${s.id}`);
+      secList.innerHTML = '';
+      if (secs.length === 0) {
+        secList.innerHTML = emptyStateHtml('users', 'لا توجد شعب بعد', 'أضف الشعبة الأولى من الحقل أعلاه.');
+        injectIcons(secList);
+        return;
+      }
+      const stack = el('<div class="list-stack"></div>');
       for (const sc of secs) {
-        const row = el(`<div class="list-row"><span class="grow">${escapeHtml(sc.name)}</span>
-          <button class="icon-btn danger" title="حذف" data-icon="trash"></button></div>`);
-        injectIcons(row);
-        row.querySelector('[title="حذف"]').onclick = async () => {
-          if (!confirm(`حذف "${sc.name}" وكل طلبتها؟`)) return;
-          try { await apiCall('DELETE', `/api/admin/sections/${sc.id}`); refresh().catch(e => showToast(e.message, true)); }
-          catch (e) { showToast(e.message, true); }
-        };
-        list.appendChild(row);
-        if (sc.id === highlightId) flashNew(row);
-      }
-    }
-    box.querySelector('#addSec').onclick = async () => {
-      const input = box.querySelector('#newSec');
-      if (!input.value.trim()) return;
-      try {
-        const created = await apiCall('POST', '/api/admin/sections', { name: input.value, stage_id: stage.id });
-        input.value = '';
-        showToast('تمت إضافة الشعبة');
-        refresh(created.id).catch(e => showToast(e.message, true));
-      } catch (e) { showToast(friendlyError(e.message), true); }
-    };
-    refresh().catch(e => showToast(e.message, true));
-  }
-
-  async function renderSubjects(stage, pane) {
-    pane.innerHTML = '';
-    const box = el(`<div class="glass-card" style="padding:1rem;margin:0.5rem 0">
-      <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:0.6rem">
-        المواد هنا تنطبق تلقائياً على جميع طلبة هذه المرحلة — لا حاجة لإعادة إدخالها لكل طالب.
-      </p>
-      <div class="toolbar">
-        <input class="input" id="newSub" placeholder="اسم المادة">
-        <select class="input" id="subMode">
-          <option value="full">سجل درجات كامل</option>
-          <option value="final_only">الدرجة النهائية فقط</option>
-        </select>
-        <button class="btn btn-primary" id="addSub"><span data-icon="plus"></span>إضافة مادة</button>
-      </div>
-      <div id="subList"></div>
-    </div>`);
-    pane.appendChild(box);
-    injectIcons(box);
-    async function refresh(highlightId) {
-      const subs = await apiCall('GET', `/api/admin/subjects?stage_id=${stage.id}`);
-      const list = box.querySelector('#subList');
-      list.innerHTML = '';
-      for (const sb of subs) {
-        const modeLabel = sb.grade_mode === 'full' ? 'سجل كامل' : 'نهائية فقط';
-        const row = el(`<div class="list-row">
-          <span class="grow">${escapeHtml(sb.name)} <span class="muted">(${escapeHtml(modeLabel)})</span></span>
-          <button class="icon-btn" title="تبديل النوع" data-icon="edit"></button>
-          <button class="icon-btn danger" title="حذف" data-icon="trash"></button>
+        const row = el(`<div class="list-row" data-id="${sc.id}">
+          <span class="grow">${escapeHtml(sc.name)}</span>
+          <button type="button" class="icon-btn" title="تعديل الاسم" aria-label="تعديل اسم ${escapeHtml(sc.name)}">${iconHtml('edit')}</button>
+          <button type="button" class="icon-btn danger" title="حذف" aria-label="حذف ${escapeHtml(sc.name)}">${iconHtml('trash')}</button>
         </div>`);
-        injectIcons(row);
-        row.querySelector('[title="تبديل النوع"]').onclick = async () => {
-          const newMode = sb.grade_mode === 'full' ? 'final_only' : 'full';
-          const msg = newMode === 'final_only'
-            ? `تبديل "${sb.name}" إلى الدرجة النهائية فقط سيخفي بقية أعمدة الدرجات لهذه المادة. هل تريد المتابعة؟`
-            : `تبديل "${sb.name}" إلى سجل الدرجات الكامل سيظهر بقية أعمدة الدرجات لهذه المادة. هل تريد المتابعة؟`;
-          if (!confirm(msg)) return;
-          try { await apiCall('PUT', `/api/admin/subjects/${sb.id}`, { name: sb.name, grade_mode: newMode, sort_order: sb.sort_order }); refresh().catch(e => showToast(e.message, true)); }
-          catch (e) { showToast(e.message, true); }
+        row.querySelector('[title="تعديل الاسم"]').onclick = () => {
+          startInlineRename(row.querySelector('.grow'), sc.name, {
+            onSave: async (name) => {
+              await apiCall('PUT', `/api/admin/sections/${sc.id}`, { name });
+              showToast('تم تعديل الاسم');
+              await refreshSections(sc.id);
+            },
+            onCancel: () => refreshSections().catch(e => showToast(e.message, true)),
+          });
         };
-        row.querySelector('[title="حذف"]').onclick = async () => {
-          if (!confirm(`حذف مادة "${sb.name}" ودرجاتها؟`)) return;
-          try { await apiCall('DELETE', `/api/admin/subjects/${sb.id}`); refresh().catch(e => showToast(e.message, true)); }
-          catch (e) { showToast(e.message, true); }
+        row.querySelector('[title="حذف"]').onclick = () => {
+          confirmRow(row, {
+            message: `حذف الشعبة «${sc.name}» يحذف معها كل طلبتها ودرجاتهم نهائياً.`,
+            onConfirm: async () => {
+              await apiCall('DELETE', `/api/admin/sections/${sc.id}`);
+              if (state.sectionId === sc.id) state.sectionId = null;
+              showToast('تم حذف الشعبة');
+              await refreshSections();
+            },
+          });
         };
-        list.appendChild(row);
-        if (sb.id === highlightId) flashNew(row);
+        stack.appendChild(row);
+        if (sc.id === hlId) flashNew(row);
       }
+      secList.appendChild(stack);
+      injectIcons(secList);
     }
-    box.querySelector('#addSub').onclick = async () => {
-      const name = box.querySelector('#newSub');
-      const mode = box.querySelector('#subMode').value;
-      if (!name.value.trim()) return;
+
+    /* --- المواد --- */
+    const subBlock = el(`<section class="group-block">
+      <h3 class="group-title">${iconHtml('book')}المواد <span class="muted">— تُطبَّق على جميع طلبة المرحلة</span></h3>
+      <div class="add-row">
+        <input class="input" placeholder="اسم المادة (مثل: الرياضيات)" aria-label="اسم المادة">
+        <select class="input" aria-label="نوع سجل الدرجات">
+          <option value="final_only">الدرجة النهائية فقط — الأسهل</option>
+          <option value="full">سجل درجات كامل</option>
+        </select>
+        <button type="button" class="btn btn-primary">${iconHtml('plus')}إضافة مادة</button>
+      </div>
+      <div class="sub-list"></div>
+    </section>`);
+    const subInput = subBlock.querySelector('input');
+    const subMode = subBlock.querySelector('select');
+    const subList = subBlock.querySelector('.sub-list');
+    async function addSubject() {
+      const name = subInput.value.trim();
+      if (!name) { showToast('اكتب اسم المادة أولاً', true); return; }
       try {
-        const created = await apiCall('POST', '/api/admin/subjects', { name: name.value, stage_id: stage.id, grade_mode: mode });
-        name.value = '';
-        showToast('تمت إضافة المادة');
-        refresh(created.id).catch(e => showToast(e.message, true));
+        const created = await apiCall('POST', '/api/admin/subjects', { name, stage_id: s.id, grade_mode: subMode.value });
+        subInput.value = '';
+        await refreshSubjects(created.id);
       } catch (e) { showToast(friendlyError(e.message), true); }
-    };
-    refresh().catch(e => showToast(e.message, true));
+    }
+    subBlock.querySelector('.add-row button').onclick = addSubject;
+    subInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addSubject(); } });
+
+    async function refreshSubjects(hlId) {
+      subList.innerHTML = sklRows(2);
+      const subs = await apiCall('GET', `/api/admin/subjects?stage_id=${s.id}`);
+      subList.innerHTML = '';
+      if (subs.length === 0) {
+        subList.innerHTML = emptyStateHtml('book', 'لا توجد مواد لهذه المرحلة بعد', 'أضف المادة الأولى من الحقل أعلاه، واختر نوع سجلها قبل الإضافة.');
+        injectIcons(subList);
+        return;
+      }
+      const stack = el('<div class="list-stack"></div>');
+      for (const sb of subs) {
+        const isFull = sb.grade_mode === 'full';
+        const row = el(`<div class="list-row" data-id="${sb.id}">
+          <span class="grow">${escapeHtml(sb.name)}</span>
+          <span class="badge badge-mode${isFull ? ' full' : ''}">${isFull ? 'سجل كامل' : 'نهائية فقط'}</span>
+          <button type="button" class="icon-btn" title="تبديل النوع" aria-label="تبديل نوع ${escapeHtml(sb.name)}">${iconHtml('refresh')}</button>
+          <button type="button" class="icon-btn" title="تعديل الاسم" aria-label="تعديل اسم ${escapeHtml(sb.name)}">${iconHtml('edit')}</button>
+          <button type="button" class="icon-btn danger" title="حذف" aria-label="حذف ${escapeHtml(sb.name)}">${iconHtml('trash')}</button>
+        </div>`);
+        row.querySelector('[title="تبديل النوع"]').onclick = () => {
+          const newMode = isFull ? 'final_only' : 'full';
+          const msg = newMode === 'final_only'
+            ? `تبديل «${sb.name}» إلى الدرجة النهائية فقط يخفي بقية أعمدة الدرجات لهذه المادة في الإدخال وفي نتيجة الطالب.`
+            : `تبديل «${sb.name}» إلى السجل الكامل يظهر بقية أعمدة الدرجات لهذه المادة في الإدخال وفي نتيجة الطالب.`;
+          confirmRow(row, {
+            message: msg,
+            confirmLabel: 'تبديل النوع',
+            neutral: true,
+            onConfirm: async () => {
+              await apiCall('PUT', `/api/admin/subjects/${sb.id}`, { name: sb.name, grade_mode: newMode, sort_order: sb.sort_order });
+              showToast('تم تبديل نوع المادة');
+              await refreshSubjects(sb.id);
+            },
+          });
+        };
+        row.querySelector('[title="تعديل الاسم"]').onclick = () => {
+          startInlineRename(row.querySelector('.grow'), sb.name, {
+            onSave: async (name) => {
+              await apiCall('PUT', `/api/admin/subjects/${sb.id}`, { name, grade_mode: sb.grade_mode, sort_order: sb.sort_order });
+              showToast('تم تعديل الاسم');
+              await refreshSubjects(sb.id);
+            },
+            onCancel: () => refreshSubjects().catch(e => showToast(e.message, true)),
+          });
+        };
+        row.querySelector('[title="حذف"]').onclick = () => {
+          confirmRow(row, {
+            message: `حذف المادة «${sb.name}» يحذف معها كل درجاتها المسجلة نهائياً.`,
+            onConfirm: async () => {
+              await apiCall('DELETE', `/api/admin/subjects/${sb.id}`);
+              showToast('تم حذف المادة');
+              await refreshSubjects();
+            },
+          });
+        };
+        stack.appendChild(row);
+        if (sb.id === hlId) flashNew(row);
+      }
+      subList.appendChild(stack);
+      injectIcons(subList);
+    }
+
+    host.appendChild(secBlock);
+    host.appendChild(subBlock);
+    await Promise.all([refreshSections(), refreshSubjects()]);
   }
 
-  loadDepts().catch(e => showToast(e.message, true));
+  await paint();
 }
 
-/* ===== students view ===== */
+/* ==========================================================================
+   شاشة الطلبة — تصفح بالشعبة أو بحث شامل بالاسم أو الرقم الامتحاني
+   ========================================================================== */
 async function renderStudentsView() {
   view.innerHTML = '';
-  const card = el(`<div class="glass-card fade-in">
-    <h3 style="margin-bottom:1rem">إدارة الطلبة</h3>
-    <div class="toolbar">
-      <select class="input" id="deptSel"><option value="">اختر القسم</option></select>
-      <select class="input" id="stageSel" disabled><option value="">اختر المرحلة</option></select>
-      <select class="input" id="secSel" disabled><option value="">اختر الشعبة</option></select>
+  const root = el(`<div class="rise">
+    <h2 class="view-title">الطلبة</h2>
+    <p class="view-sub">اختر الشعبة لعرض طلبتها وإضافة طلبة جدد، أو ابحث مباشرة باسم الطالب أو رقمه الامتحاني.</p>
+    <div class="card">
+      <div class="toolbar">
+        <div class="search-box">
+          ${iconHtml('search')}
+          <input class="input" id="stSearch" placeholder="ابحث باسم الطالب أو الرقم الامتحاني" aria-label="بحث عن طالب">
+        </div>
+      </div>
+      <div class="toolbar" id="stPickers">
+        <select class="input" id="deptSel" aria-label="القسم"><option value="">اختر القسم</option></select>
+        <select class="input" id="stageSel" disabled aria-label="المرحلة"><option value="">اختر المرحلة</option></select>
+        <select class="input" id="secSel" disabled aria-label="الشعبة"><option value="">اختر الشعبة</option></select>
+      </div>
+      <div class="add-row" id="addBar" hidden>
+        <input class="input" id="newStudent" placeholder="اسم الطالب الثلاثي" aria-label="اسم الطالب الثلاثي">
+        <button type="button" class="btn btn-primary" id="addStudent">${iconHtml('plus')}إضافة طالب</button>
+      </div>
+      <div id="stConfirm"></div>
+      <div id="studentList"></div>
     </div>
-    <div class="toolbar" id="addBar" hidden>
-      <input class="input" id="newStudent" placeholder="اسم الطالب الثلاثي">
-      <button class="btn btn-primary" id="addStudent"><span data-icon="plus"></span>إضافة طالب</button>
-    </div>
-    <div id="studentList"></div>
   </div>`);
-  view.appendChild(card);
-  injectIcons(card);
+  view.appendChild(root);
+  injectIcons(root);
 
-  const deptSel = card.querySelector('#deptSel');
-  const stageSel = card.querySelector('#stageSel');
-  const secSel = card.querySelector('#secSel');
-  const addBar = card.querySelector('#addBar');
+  const searchInput = root.querySelector('#stSearch');
+  const pickersBar = root.querySelector('#stPickers');
+  const deptSel = root.querySelector('#deptSel');
+  const stageSel = root.querySelector('#stageSel');
+  const secSel = root.querySelector('#secSel');
+  const addBar = root.querySelector('#addBar');
+  const confirmHost = root.querySelector('#stConfirm');
+  const listHost = root.querySelector('#studentList');
 
+  listHost.innerHTML = emptyStateHtml('users', 'اختر الشعبة من القوائم أعلاه', 'أو اكتب اسم طالب أو رقمه الامتحاني في حقل البحث.');
+  injectIcons(listHost);
+
+  /* --- فهرس البحث الشامل (يُبنى عند أول بحث ويُبطل بعد أي تعديل) --- */
+  let index = null;
+  async function ensureIndex() {
+    if (index) return index;
+    const [depts, stages, sections, students] = await Promise.all([
+      apiCall('GET', '/api/admin/departments'),
+      apiCall('GET', '/api/admin/stages'),
+      apiCall('GET', '/api/admin/sections'),
+      apiCall('GET', '/api/admin/students'),
+    ]);
+    const deptById = new Map(depts.map(d => [d.id, d]));
+    const stageById = new Map(stages.map(s => [s.id, s]));
+    const secById = new Map(sections.map(s => [s.id, s]));
+    index = students.map(st => {
+      const sec = secById.get(st.section_id);
+      const stg = sec ? stageById.get(sec.stage_id) : null;
+      const dep = stg ? deptById.get(stg.department_id) : null;
+      return { ...st, context: [dep && dep.name, stg && stg.name, sec && sec.name].filter(Boolean).join(' — ') };
+    });
+    return index;
+  }
+  function invalidateIndex() { index = null; }
+
+  function studentRow(st, { context } = {}) {
+    const row = el(`<div class="list-row" data-id="${st.id}">
+      <span class="grow student-name">${escapeHtml(st.name)}${context ? `<br><span class="muted">${escapeHtml(context)}</span>` : ''}</span>
+      <span class="exam-chip">${escapeHtml(st.exam_number)}</span>
+      <button type="button" class="btn btn-ghost btn-sm" data-copy>${iconHtml('copy')}نسخ</button>
+      <button type="button" class="icon-btn" title="تعديل الاسم" aria-label="تعديل اسم ${escapeHtml(st.name)}">${iconHtml('edit')}</button>
+      <button type="button" class="icon-btn danger" title="حذف" aria-label="حذف ${escapeHtml(st.name)}">${iconHtml('trash')}</button>
+    </div>`);
+    wireCopyButton(row.querySelector('[data-copy]'), st.exam_number);
+    row.querySelector('[title="تعديل الاسم"]').onclick = () => {
+      startInlineRename(row.querySelector('.student-name'), st.name, {
+        onSave: async (name) => {
+          await apiCall('PUT', `/api/admin/students/${st.id}`, { name, section_id: st.section_id });
+          showToast('تم تعديل الاسم');
+          invalidateIndex();
+          await repaintCurrent();
+        },
+        onCancel: () => repaintCurrent(),
+      });
+    };
+    row.querySelector('[title="حذف"]').onclick = () => {
+      confirmRow(row, {
+        message: `حذف الطالب «${st.name}» يحذف معه درجاته المسجلة نهائياً.`,
+        onConfirm: async () => {
+          await apiCall('DELETE', `/api/admin/students/${st.id}`);
+          showToast('تم حذف الطالب');
+          invalidateIndex();
+          await repaintCurrent();
+        },
+      });
+    };
+    return row;
+  }
+
+  async function repaintCurrent() {
+    const q = searchInput.value.trim();
+    if (q) await paintSearch(q);
+    else if (secSel.value) await paintSection();
+    else {
+      listHost.innerHTML = emptyStateHtml('users', 'اختر الشعبة من القوائم أعلاه', 'أو اكتب اسم طالب أو رقمه الامتحاني في حقل البحث.');
+      injectIcons(listHost);
+    }
+  }
+
+  /* --- وضع التصفح بالشعبة --- */
+  async function paintSection(highlightId) {
+    listHost.innerHTML = sklRows(3);
+    const students = await apiCall('GET', `/api/admin/students?section_id=${secSel.value}`);
+    listHost.innerHTML = '';
+    if (students.length === 0) {
+      listHost.innerHTML = emptyStateHtml('users', 'لا يوجد طلبة في هذه الشعبة بعد', 'اكتب اسم الطالب الثلاثي في الحقل أعلاه واضغط «إضافة طالب».');
+      injectIcons(listHost);
+      return;
+    }
+    const count = el(`<p class="grades-count">${arDigits(students.length)} طالباً في هذه الشعبة</p>`);
+    listHost.appendChild(count);
+    const stack = el('<div class="list-stack"></div>');
+    for (const st of students) {
+      const row = studentRow(st);
+      stack.appendChild(row);
+      if (st.id === highlightId) flashNew(row);
+    }
+    listHost.appendChild(stack);
+    injectIcons(listHost);
+  }
+
+  /* --- وضع البحث الشامل --- */
+  let searchSeq = 0;
+  async function paintSearch(q) {
+    const seq = ++searchSeq;
+    listHost.innerHTML = sklRows(3);
+    let idx;
+    try { idx = await ensureIndex(); }
+    catch (e) { showToast(e.message, true); listHost.innerHTML = ''; return; }
+    if (seq !== searchSeq) return;
+    const digits = q.replace(/\D/g, '');
+    const matches = idx.filter(st =>
+      st.name.includes(q) || (digits.length > 0 && st.exam_number.startsWith(digits))
+    );
+    listHost.innerHTML = '';
+    if (matches.length === 0) {
+      listHost.innerHTML = emptyStateHtml('search', 'لا توجد نتائج مطابقة', 'تأكد من كتابة الاسم أو الرقم الامتحاني بدقة.');
+      injectIcons(listHost);
+      return;
+    }
+    const shown = matches.slice(0, 30);
+    listHost.appendChild(el(`<p class="grades-count">${arDigits(matches.length)} نتيجة${matches.length > 30 ? ` — تُعرض أول ${arDigits(30)}، دقّق البحث لتضييقها` : ''}</p>`));
+    const stack = el('<div class="list-stack"></div>');
+    for (const st of shown) stack.appendChild(studentRow(st, { context: st.context }));
+    listHost.appendChild(stack);
+    injectIcons(listHost);
+  }
+
+  let searchTimer = null;
+  searchInput.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      const q = searchInput.value.trim();
+      pickersBar.style.display = q ? 'none' : '';
+      addBar.hidden = q ? true : !secSel.value;
+      confirmHost.innerHTML = '';
+      repaintCurrent().catch(e => showToast(e.message, true));
+    }, 220);
+  });
+
+  /* --- القوائم المتسلسلة --- */
   const depts = await apiCall('GET', '/api/admin/departments');
   for (const d of depts) deptSel.appendChild(el(`<option value="${d.id}">${escapeHtml(d.name)}</option>`));
 
@@ -813,7 +1200,8 @@ async function renderStudentsView() {
     stageSel.innerHTML = '<option value="">اختر المرحلة</option>';
     secSel.innerHTML = '<option value="">اختر الشعبة</option>';
     secSel.disabled = true; addBar.hidden = true;
-    card.querySelector('#studentList').innerHTML = '';
+    confirmHost.innerHTML = '';
+    await repaintCurrent();
     if (!deptSel.value) { stageSel.disabled = true; return; }
     try {
       const stages = await apiCall('GET', `/api/admin/stages?department_id=${deptSel.value}`);
@@ -825,7 +1213,8 @@ async function renderStudentsView() {
   stageSel.onchange = async () => {
     secSel.innerHTML = '<option value="">اختر الشعبة</option>';
     addBar.hidden = true;
-    card.querySelector('#studentList').innerHTML = '';
+    confirmHost.innerHTML = '';
+    await repaintCurrent();
     if (!stageSel.value) { secSel.disabled = true; return; }
     try {
       const secs = await apiCall('GET', `/api/admin/sections?stage_id=${stageSel.value}`);
@@ -836,59 +1225,39 @@ async function renderStudentsView() {
 
   secSel.onchange = () => {
     addBar.hidden = !secSel.value;
-    if (secSel.value) loadStudents().catch(e => showToast(e.message, true));
+    confirmHost.innerHTML = '';
+    if (secSel.value) paintSection().catch(e => showToast(e.message, true));
+    else repaintCurrent();
   };
 
-  async function loadStudents(highlightId) {
-    const students = await apiCall('GET', `/api/admin/students?section_id=${secSel.value}`);
-    const list = card.querySelector('#studentList');
-    list.innerHTML = '';
-    if (students.length === 0) {
-      list.innerHTML = '<p style="color:var(--text-muted)">لا يوجد طلبة في هذه الشعبة بعد</p>';
-      return;
-    }
-    for (const st of students) {
-      const row = el(`<div class="list-row">
-        <span class="grow student-name">${escapeHtml(st.name)}
-          <span class="muted">الرقم الامتحاني: <b style="direction:ltr;display:inline-block">${escapeHtml(st.exam_number)}</b></span>
-        </span>
-        <button class="icon-btn" title="تعديل" data-icon="edit"></button>
-        <button class="icon-btn danger" title="حذف" data-icon="trash"></button>
-      </div>`);
-      injectIcons(row);
-      row.querySelector('[title="تعديل"]').onclick = () => {
-        startInlineRename(row.querySelector('.student-name'), st.name, {
-          onSave: async (name) => {
-            await apiCall('PUT', `/api/admin/students/${st.id}`, { name, section_id: st.section_id });
-            showToast('تم تعديل الاسم');
-            await loadStudents();
-          },
-          onCancel: () => loadStudents().catch(e => showToast(e.message, true)),
-        });
-      };
-      row.querySelector('[title="حذف"]').onclick = async () => {
-        if (!confirm(`حذف الطالب "${st.name}" ودرجاته؟`)) return;
-        try { await apiCall('DELETE', `/api/admin/students/${st.id}`); loadStudents().catch(e => showToast(e.message, true)); }
-        catch (e) { showToast(e.message, true); }
-      };
-      list.appendChild(row);
-      if (st.id === highlightId) flashNew(row);
-    }
-  }
-
-  card.querySelector('#addStudent').onclick = async () => {
-    const input = card.querySelector('#newStudent');
-    if (!input.value.trim()) return;
+  /* --- إضافة طالب --- */
+  const newStudentInput = root.querySelector('#newStudent');
+  async function addStudent() {
+    const name = newStudentInput.value.trim();
+    if (!name) { showToast('اكتب اسم الطالب أولاً', true); return; }
     try {
-      const created = await apiCall('POST', '/api/admin/students', { name: input.value, section_id: Number(secSel.value) });
-      input.value = '';
-      showToast(`تمت الإضافة — الرقم الامتحاني: ${created.exam_number}`);
-      loadStudents(created.id).catch(e => showToast(e.message, true));
+      const created = await apiCall('POST', '/api/admin/students', { name, section_id: Number(secSel.value) });
+      newStudentInput.value = '';
+      newStudentInput.focus();
+      invalidateIndex();
+      confirmHost.innerHTML = '';
+      const note = el(`<div class="inline-note ok" role="status">${iconHtml('checkCircle')}
+        <span>تمت إضافة <b>${escapeHtml(created.name)}</b> — الرقم الامتحاني: <span class="exam-chip">${escapeHtml(created.exam_number)}</span></span>
+        <button type="button" class="btn btn-ghost btn-sm">${iconHtml('copy')}نسخ الرقم</button>
+      </div>`);
+      wireCopyButton(note.querySelector('button'), created.exam_number);
+      confirmHost.appendChild(note);
+      injectIcons(confirmHost);
+      await paintSection(created.id);
     } catch (e) { showToast(friendlyError(e.message), true); }
-  };
+  }
+  root.querySelector('#addStudent').onclick = addStudent;
+  newStudentInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addStudent(); } });
 }
 
-/* ===== grades view ===== */
+/* ==========================================================================
+   شاشة الدرجات
+   ========================================================================== */
 const GRADE_COLS = [
   ['first_term_avg', 'معدل النصف الأول'],
   ['midyear', 'درجة نصف السنة'],
@@ -898,33 +1267,39 @@ const GRADE_COLS = [
   ['final_grade', 'الدرجة النهائية'],
 ];
 
-// Set true while the grades grid has unsaved edits; checked by route() and
-// beforeunload so a teacher is warned before losing work — a real data-loss
-// bug once already (see plan v2 Task 4).
+// true عندما تكون في شبكة الدرجات تعديلات غير محفوظة؛ يفحصها الموجّه
+// وزر الخروج وbeforeunload كي لا يضيع عمل المدرس دون تنبيه.
 let gradesDirty = false;
+// تسجلها شاشة الدرجات ليستدعيها الموجّه: تعرض شريط «تغييرات غير محفوظة».
+let gradesPrompt = null;
 
 async function renderGradesView() {
   view.innerHTML = '';
-  const card = el(`<div class="glass-card fade-in">
-    <h3 style="margin-bottom:0.6rem">إدخال الدرجات</h3>
-    <p class="status-line" id="gStatusLine"></p>
-    <div class="toolbar">
-      <select class="input" id="gDept"><option value="">القسم</option></select>
-      <select class="input" id="gStage" disabled><option value="">المرحلة</option></select>
-      <select class="input" id="gSec" disabled><option value="">الشعبة</option></select>
-      <select class="input" id="gSub" disabled><option value="">المادة</option></select>
+  const root = el(`<div class="rise">
+    <h2 class="view-title">إدخال الدرجات</h2>
+    <p class="view-sub">اختر الشعبة والمادة ليظهر جدول الطلبة، وكل الدرجات من ٠ إلى ١٠٠.</p>
+    <div class="card">
+      <div class="status-line">${iconHtml('arrowRight')}<span id="gStatus" aria-live="polite"></span></div>
+      <div id="gUnsaved"></div>
+      <div class="toolbar">
+        <select class="input" id="gDept" aria-label="القسم"><option value="">القسم</option></select>
+        <select class="input" id="gStage" disabled aria-label="المرحلة"><option value="">المرحلة</option></select>
+        <select class="input" id="gSec" disabled aria-label="الشعبة"><option value="">الشعبة</option></select>
+        <select class="input" id="gSub" disabled aria-label="المادة"><option value="">المادة</option></select>
+      </div>
+      <div id="gridWrap"></div>
     </div>
-    <div id="gridWrap"></div>
   </div>`);
-  view.appendChild(card);
-  injectIcons(card);
+  view.appendChild(root);
+  injectIcons(root);
 
-  const gDept = card.querySelector('#gDept');
-  const gStage = card.querySelector('#gStage');
-  const gSec = card.querySelector('#gSec');
-  const gSub = card.querySelector('#gSub');
-  const statusLine = card.querySelector('#gStatusLine');
-  const gridWrap = card.querySelector('#gridWrap');
+  const gDept = root.querySelector('#gDept');
+  const gStage = root.querySelector('#gStage');
+  const gSec = root.querySelector('#gSec');
+  const gSub = root.querySelector('#gSub');
+  const statusEl = root.querySelector('#gStatus');
+  const unsavedHost = root.querySelector('#gUnsaved');
+  const gridWrap = root.querySelector('#gridWrap');
   let subjects = [];
   let currentMode = null;
   let gridCounts = { total: 0, filled: 0 };
@@ -935,11 +1310,48 @@ async function renderGradesView() {
     return opt ? opt.textContent : '';
   }
 
-  // Real-time visual pointer, same pattern as the quick view: exactly one
-  // control marked as "do this next", moving as the teacher progresses.
+  /* شريط «تغييرات غير محفوظة» — بديل نافذة confirm للموجّه والقوائم */
+  function showUnsavedStrip(onProceed) {
+    unsavedHost.innerHTML = '';
+    const strip = el(`<div class="unsaved-strip" role="group" aria-label="تغييرات غير محفوظة">
+      <span class="confirm-msg">توجد درجات غير محفوظة — احفظها أولاً من زر «حفظ الدرجات»، أو تابع وستضيع التعديلات.</span>
+      <button type="button" class="btn btn-danger btn-sm" data-go>المتابعة دون حفظ</button>
+      <button type="button" class="btn btn-primary btn-sm" data-stay>البقاء هنا</button>
+    </div>`);
+    strip.querySelector('[data-go]').onclick = () => {
+      gradesDirty = false;
+      unsavedHost.innerHTML = '';
+      onProceed();
+    };
+    strip.querySelector('[data-stay]').onclick = () => { unsavedHost.innerHTML = ''; };
+    unsavedHost.appendChild(strip);
+    strip.querySelector('[data-stay]').focus();
+    strip.scrollIntoView({ block: 'nearest' });
+  }
+  gradesPrompt = showUnsavedStrip;
+
+  // تغيير قائمة أثناء وجود تعديلات: تُرجَع القائمة لقيمتها ويُعرض الشريط،
+  // وعند «المتابعة دون حفظ» يُطبَّق الاختيار الذي حاوله المدرس.
+  function guardedChange(select, apply) {
+    select.onchange = () => {
+      if (!gradesDirty) {
+        select.dataset.prev = select.value;
+        apply();
+        return;
+      }
+      const attempted = select.value;
+      select.value = select.dataset.prev || '';
+      showUnsavedStrip(() => {
+        select.value = attempted;
+        select.dataset.prev = attempted;
+        apply();
+      });
+    };
+  }
+
   function updatePointer() {
     const mark = (elm) => {
-      card.querySelectorAll('.next-target').forEach(n => n.classList.remove('next-target'));
+      root.querySelectorAll('.next-target').forEach(n => n.classList.remove('next-target'));
       if (elm) elm.classList.add('next-target');
     };
     if (!gDept.value) { mark(gDept); return; }
@@ -955,30 +1367,25 @@ async function renderGradesView() {
   }
 
   function updateStatus() {
-    if (gradesDirty) { statusLine.textContent = 'فيه تغييرات غير محفوظة — اضغط حفظ'; updatePointer(); return; }
-    if (!gDept.value) { statusLine.textContent = 'اختر القسم أولاً'; updatePointer(); return; }
-    if (!gStage.value) { statusLine.textContent = `اخترت: ${selectedText(gDept)}. الآن اختر المرحلة.`; updatePointer(); return; }
-    if (!gSec.value) { statusLine.textContent = `اخترت: ${selectedText(gStage)}. الآن اختر الشعبة.`; updatePointer(); return; }
-    if (!gSub.value) { statusLine.textContent = 'اخترت الشعبة. الآن اختر المادة.'; updatePointer(); return; }
+    const actions = gridWrap.querySelector('.grades-actions');
+    if (actions) actions.classList.toggle('is-dirty', gradesDirty);
+    if (gradesDirty) { statusEl.textContent = 'توجد درجات غير محفوظة — اضغط «حفظ الدرجات» عند الانتهاء.'; updatePointer(); return; }
+    if (!gDept.value) { statusEl.textContent = 'اختر القسم أولاً.'; updatePointer(); return; }
+    if (!gStage.value) { statusEl.textContent = `اخترت: ${selectedText(gDept)}. الآن اختر المرحلة.`; updatePointer(); return; }
+    if (!gSec.value) { statusEl.textContent = `اخترت: ${selectedText(gStage)}. الآن اختر الشعبة.`; updatePointer(); return; }
+    if (!gSub.value) { statusEl.textContent = 'اخترت الشعبة. الآن اختر المادة.'; updatePointer(); return; }
     if (currentMode === 'final_only') {
       const remaining = gridCounts.total - gridCounts.filled;
-      statusLine.textContent = remaining === 0
-        ? 'تم إدخال درجات جميع الطلبة. اضغط حفظ.'
-        : `أدخل الدرجة النهائية لكل طالب، ثم اضغط حفظ — بقي ${arDigits(remaining)} من ${arDigits(gridCounts.total)}.`;
+      statusEl.textContent = remaining === 0
+        ? 'تم إدخال درجات جميع الطلبة — اضغط «حفظ».'
+        : `أدخل الدرجة النهائية لكل طالب ثم اضغط «حفظ» — بقي ${arDigits(remaining)} من ${arDigits(gridCounts.total)}.`;
       updatePointer();
       return;
     }
-    statusLine.textContent = 'أدخل الدرجات ثم اضغط حفظ.';
+    statusEl.textContent = 'أدخل الدرجات ثم اضغط «حفظ الدرجات» أسفل الجدول.';
     updatePointer();
   }
   updateStatus();
-
-  function confirmDiscard() {
-    if (!gradesDirty) return true;
-    const ok = confirm('فيه تغييرات غير محفوظة في الدرجات. هل تريد المتابعة دون حفظ؟');
-    if (ok) gradesDirty = false;
-    return ok;
-  }
 
   for (const d of await apiCall('GET', '/api/admin/departments')) {
     gDept.appendChild(el(`<option value="${d.id}">${escapeHtml(d.name)}</option>`));
@@ -1011,8 +1418,16 @@ async function renderGradesView() {
     gSub.innerHTML = '<option value="">المادة</option>';
     gridWrap.innerHTML = '';
     if (!gSec.value) { gSub.disabled = true; updateStatus(); return; }
+    if (subjects.length === 0) {
+      gSub.disabled = true;
+      gridWrap.innerHTML = emptyStateHtml('book', 'لا توجد مواد لهذه المرحلة بعد', 'أضف المواد من شاشة «الأقسام والمراحل» أو من «الإضافة السريعة» ثم عد إلى هنا.');
+      injectIcons(gridWrap);
+      updateStatus();
+      return;
+    }
     for (const s of subjects) {
-      gSub.appendChild(el(`<option value="${s.id}">${escapeHtml(s.name)}</option>`));
+      const modeLabel = s.grade_mode === 'full' ? 'سجل كامل' : 'نهائية فقط';
+      gSub.appendChild(el(`<option value="${s.id}">${escapeHtml(s.name)} — ${modeLabel}</option>`));
     }
     gSub.disabled = false;
     if (subjects.length === 1) {
@@ -1024,46 +1439,50 @@ async function renderGradesView() {
     }
   }
 
-  gDept.onchange = async () => {
-    if (!confirmDiscard()) { gDept.value = gDept.dataset.prev || ''; return; }
-    gDept.dataset.prev = gDept.value;
-    try { await loadStages(); } catch (e) { showToast(e.message, true); }
-  };
-  gStage.onchange = async () => {
-    if (!confirmDiscard()) { gStage.value = gStage.dataset.prev || ''; return; }
-    gStage.dataset.prev = gStage.value;
-    try { await loadSections(); } catch (e) { showToast(e.message, true); }
-  };
-  gSec.onchange = () => {
-    if (!confirmDiscard()) { gSec.value = gSec.dataset.prev || ''; return; }
-    gSec.dataset.prev = gSec.value;
-    loadSubjectsIntoSelect();
-  };
-  gSub.onchange = () => {
-    if (!confirmDiscard()) { gSub.value = gSub.dataset.prev || ''; return; }
-    gSub.dataset.prev = gSub.value;
+  guardedChange(gDept, () => { loadStages().catch(e => showToast(e.message, true)); });
+  guardedChange(gStage, () => { loadSections().catch(e => showToast(e.message, true)); });
+  guardedChange(gSec, () => { loadSubjectsIntoSelect(); });
+  guardedChange(gSub, () => {
     if (gSub.value) loadGrid().catch(e => showToast(e.message, true));
     else { gridWrap.innerHTML = ''; updateStatus(); }
-  };
+  });
 
   async function loadGrid() {
     gradesDirty = false;
+    unsavedHost.innerHTML = '';
     const subject = subjects.find(s => s.id === Number(gSub.value));
     currentMode = subject.grade_mode;
+    gridWrap.innerHTML = sklRows(4);
     const rows = await apiCall('GET', `/api/admin/grades?section_id=${gSec.value}&subject_id=${gSub.value}`);
     gridWrap.innerHTML = '';
-    if (rows.length === 0) { gridWrap.innerHTML = '<p style="color:var(--text-muted)">لا يوجد طلبة في هذه الشعبة</p>'; updateStatus(); return; }
+    if (rows.length === 0) {
+      gridWrap.innerHTML = emptyStateHtml('users', 'لا يوجد طلبة في هذه الشعبة', 'أضف الطلبة من شاشة «الطلبة» أو من «الإضافة السريعة» ثم عد إلى هنا.');
+      injectIcons(gridWrap);
+      updateStatus();
+      return;
+    }
 
     if (currentMode === 'final_only') renderFinalOnlyGrid(rows);
     else renderFullGrid(rows);
+    injectIcons(gridWrap);
     updateStatus();
   }
 
-  /* ---- full grid: unchanged six-column behavior (auto-compute, keyboard nav) ---- */
+  function saveNote(saved) {
+    const host = gridWrap.querySelector('.grades-actions');
+    if (!host) return;
+    const prev = host.querySelector('.inline-note');
+    if (prev) prev.remove();
+    const note = el(`<div class="inline-note ok" style="margin:0" role="status">${iconHtml('checkCircle')}<span>تم حفظ درجات ${arDigits(saved)} طالباً بنجاح.</span></div>`);
+    host.appendChild(note);
+    injectIcons(note);
+  }
+
+  /* ---- السجل الكامل: ستة أعمدة بالسلوك المعهود (حساب تلقائي وتنقّل لوحة مفاتيح) ---- */
   function renderFullGrid(rows) {
     const cols = GRADE_COLS;
     const box = el(`<div>
-      <p class="grade-rule-hint">كل الدرجات من ٠ إلى ١٠٠</p>
+      <p class="grade-rule-hint">${iconHtml('info')}كل الدرجات من ٠ إلى ١٠٠ — معدل السعي والدرجة النهائية يُحسبان تلقائياً ويمكن تعديلهما يدوياً</p>
       <div class="table-wrap"><table class="grades">
         <thead><tr><th>الطالب</th>${cols.map(([, label]) => `<th>${escapeHtml(label)}</th>`).join('')}</tr></thead>
         <tbody></tbody>
@@ -1073,21 +1492,24 @@ async function renderGradesView() {
 
     for (const r of rows) {
       const tr = el(`<tr data-student="${r.student_id}">
-        <td class="subject-name">${escapeHtml(r.student_name)}<br><span class="muted" style="direction:ltr">${escapeHtml(r.exam_number)}</span></td>
+        <td class="subject-name">${escapeHtml(r.student_name)}<br><span class="exam-chip">${escapeHtml(r.exam_number)}</span></td>
         ${cols.map(([k]) => {
           const isManual = ['annual_effort', 'final_grade'].includes(k) && r[k] !== null && r[k] !== undefined && r[k] !== '';
-          return `<td><input class="input" data-field="${k}" inputmode="numeric" value="${r[k] ?? ''}"${isManual ? ' data-manual="1"' : ''}></td>`;
+          return `<td><input class="input" data-field="${k}" inputmode="numeric" aria-label="${escapeHtml(r.student_name)}" value="${r[k] ?? ''}"${isManual ? ' data-manual="1"' : ''}></td>`;
         }).join('')}
       </tr>`);
       tbody.appendChild(tr);
     }
     gridWrap.appendChild(box);
 
-    const saveBtn = el(`<button class="btn btn-primary" style="margin-top:1rem"><span data-icon="save"></span>حفظ الدرجات</button>`);
-    injectIcons(saveBtn);
-    gridWrap.appendChild(saveBtn);
+    const actions = el(`<div class="grades-actions">
+      <button type="button" class="btn btn-primary">${iconHtml('save')}حفظ الدرجات</button>
+      <span class="dirty-flag">${iconHtml('alertTriangle')}تغييرات غير محفوظة</span>
+    </div>`);
+    gridWrap.appendChild(actions);
+    const saveBtn = actions.querySelector('button');
 
-    // numeric guard + auto-compute + keyboard navigation
+    // حارس الأرقام + الحساب التلقائي + تنقّل لوحة المفاتيح
     box.querySelectorAll('input[data-field]').forEach(input => {
       input.addEventListener('input', () => {
         input.value = input.value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
@@ -1130,27 +1552,31 @@ async function renderGradesView() {
         }
         return entry;
       });
+      saveBtn.disabled = true;
       try {
         const r = await apiCall('PUT', '/api/admin/grades', { subject_id: Number(gSub.value), entries });
         gradesDirty = false;
+        unsavedHost.innerHTML = '';
+        saveNote(r.saved);
         showToast(`تم حفظ درجات ${r.saved} طالب`);
         updateStatus();
       } catch (e) { showToast(e.message, true); }
+      finally { saveBtn.disabled = false; }
     };
   }
 
-  /* ---- final-only grid: one number box per student — the easiest path, per R5 ----
-     IMPORTANT: entries sent to PUT /api/admin/grades only ever carry the
-     `final_grade` key. The backend only overwrites fields present in the
-     payload (see gradesRouter's has_<field> pattern), so the five detail
-     columns for subjects that have them are never nulled out by a save here. */
+  /* ---- «النهائية فقط»: صندوق واحد لكل طالب — المسار الأسهل.
+     مهم: كل مدخلة تحمل مفتاح final_grade فقط؛ الخادم لا يمس إلا الحقول
+     الموجودة في الحمولة (نمط has_<field>)، فلا تُصفَّر أعمدة التفاصيل. ---- */
   function renderFinalOnlyGrid(rows) {
     const wrap = el(`<div>
-      <p class="grades-count" id="gCount"></p>
+      <p class="grades-count" id="gCount" aria-live="polite"></p>
       <div class="fo-list"></div>
-      <button class="btn btn-primary" id="gFoSave"><span data-icon="save"></span>حفظ</button>
+      <div class="grades-actions">
+        <button type="button" class="btn btn-primary" id="gFoSave">${iconHtml('save')}حفظ</button>
+        <span class="dirty-flag">${iconHtml('alertTriangle')}تغييرات غير محفوظة</span>
+      </div>
     </div>`);
-    injectIcons(wrap);
     const list = wrap.querySelector('.fo-list');
     const countEl = wrap.querySelector('#gCount');
 
@@ -1162,14 +1588,13 @@ async function renderGradesView() {
     }
 
     for (const r of rows) {
-      // Pre-loaded non-null final_grade values carry data-manual="1" so a
-      // later switch back to 'full' mode never lets auto-compute silently
-      // overwrite what a teacher already saved here.
+      // القيم المحملة غير الفارغة تحمل data-manual كي لا يكتب الحساب
+      // التلقائي فوقها إذا بُدّلت المادة لاحقاً إلى السجل الكامل.
       const isManual = r.final_grade !== null && r.final_grade !== undefined && r.final_grade !== '';
       const row = el(`<div class="fo-row" data-student="${r.student_id}">
-        <span class="fo-name">${escapeHtml(r.student_name)} <span class="muted" style="direction:ltr">${escapeHtml(r.exam_number)}</span></span>
+        <span class="fo-name">${escapeHtml(r.student_name)} <span class="exam-chip">${escapeHtml(r.exam_number)}</span></span>
         <span class="fo-grade-wrap">
-          <input class="input fo-grade" data-field="final_grade" inputmode="numeric" value="${r.final_grade ?? ''}"${isManual ? ' data-manual="1"' : ''}>
+          <input class="input fo-grade" data-field="final_grade" inputmode="numeric" aria-label="الدرجة النهائية للطالب ${escapeHtml(r.student_name)}" value="${r.final_grade ?? ''}"${isManual ? ' data-manual="1"' : ''}>
           <small>من ٠ إلى ١٠٠</small>
         </span>
       </div>`);
@@ -1202,9 +1627,7 @@ async function renderGradesView() {
     });
 
     wrap.querySelector('#gFoSave').onclick = async () => {
-      // Only `final_grade` is ever included per entry — the five detail
-      // columns are omitted entirely, not sent as null, so the backend's
-      // has_<field> guard leaves any existing detail values untouched.
+      // final_grade فقط في كل مدخلة — أعمدة التفاصيل لا تُرسل إطلاقاً.
       const entries = [...list.querySelectorAll('.fo-row')].map(row => {
         const input = row.querySelector('input.fo-grade');
         return {
@@ -1212,17 +1635,22 @@ async function renderGradesView() {
           final_grade: input.value !== '' ? parseFloat(input.value) : null,
         };
       });
+      const saveBtn = wrap.querySelector('#gFoSave');
+      saveBtn.disabled = true;
       try {
         const r = await apiCall('PUT', '/api/admin/grades', { subject_id: Number(gSub.value), entries });
         gradesDirty = false;
+        unsavedHost.innerHTML = '';
+        saveNote(r.saved);
         showToast(`تم حفظ درجات ${r.saved} طالب`);
         updateStatus();
       } catch (e) { showToast(e.message, true); }
+      finally { saveBtn.disabled = false; }
     };
   }
 
-  /* ---- carry department/stage/section forward from the quick view or a
-     previous grades session — a teacher must never re-pick them here ---- */
+  /* ---- استكمال السياق من الإضافة السريعة أو زيارة سابقة —
+     لا يُعاد اختيار القسم والمرحلة والشعبة هنا أبداً ---- */
   if (state.deptId) {
     gDept.value = String(state.deptId);
     if (gDept.value === String(state.deptId)) {
@@ -1246,71 +1674,110 @@ async function renderGradesView() {
   }
 }
 
-/* ===== password view ===== */
+/* ==========================================================================
+   شاشة كلمة المرور
+   ========================================================================== */
 async function renderPasswordView() {
   view.innerHTML = '';
-  const card = el(`<div class="glass-card fade-in" style="max-width:420px">
-    <h3 style="margin-bottom:1rem">تغيير كلمة المرور</h3>
-    <div class="field-group" style="display:flex;flex-direction:column;gap:0.8rem">
-      <input class="input" type="password" id="curPass" placeholder="كلمة المرور الحالية">
-      <input class="input" type="password" id="newPass" placeholder="كلمة المرور الجديدة">
-      <input class="input" type="password" id="confPass" placeholder="تأكيد كلمة المرور الجديدة">
-      <button class="btn btn-primary" id="savePass"><span data-icon="save"></span>حفظ</button>
+  const root = el(`<div class="rise" style="max-width:480px">
+    <h2 class="view-title">كلمة المرور</h2>
+    <p class="view-sub">غيّر كلمة مرور لوحة الإدارة. يجب ألا تقل الجديدة عن ٨ أحرف.</p>
+    <div class="card">
+      <div class="field" style="margin-bottom:var(--space-4)">
+        <label for="curPass">كلمة المرور الحالية</label>
+        <input class="input" type="password" id="curPass" autocomplete="current-password">
+      </div>
+      <div class="field" style="margin-bottom:var(--space-4)">
+        <label for="newPass">كلمة المرور الجديدة</label>
+        <input class="input" type="password" id="newPass" autocomplete="new-password">
+        <span class="field-hint">٨ أحرف على الأقل — يُفضَّل مزج حروف وأرقام.</span>
+      </div>
+      <div class="field" style="margin-bottom:var(--space-4)">
+        <label for="confPass">تأكيد كلمة المرور الجديدة</label>
+        <input class="input" type="password" id="confPass" autocomplete="new-password">
+      </div>
+      <div id="passMsg"></div>
+      <button type="button" class="btn btn-primary btn-block" id="savePass">${iconHtml('save')}حفظ كلمة المرور</button>
     </div>
   </div>`);
-  view.appendChild(card);
-  injectIcons(card);
+  view.appendChild(root);
+  injectIcons(root);
 
-  const curPass = card.querySelector('#curPass');
-  const newPass = card.querySelector('#newPass');
-  const confPass = card.querySelector('#confPass');
+  const curPass = root.querySelector('#curPass');
+  const newPass = root.querySelector('#newPass');
+  const confPass = root.querySelector('#confPass');
+  const msgHost = root.querySelector('#passMsg');
+  const saveBtn = root.querySelector('#savePass');
 
-  card.querySelector('#savePass').onclick = async () => {
-    if (newPass.value !== confPass.value) {
-      showToast('كلمتا المرور غير متطابقتين', true);
-      return;
-    }
-    if (newPass.value.length < 8) {
-      showToast('كلمة المرور الجديدة يجب أن تكون 8 أحرف على الأقل', true);
-      return;
-    }
+  function showMsg(type, text) {
+    msgHost.innerHTML = `<div class="inline-note ${type}" role="status">${iconHtml(type === 'ok' ? 'checkCircle' : 'alert')}<span>${escapeHtml(text)}</span></div>`;
+    injectIcons(msgHost);
+  }
+
+  async function save() {
+    msgHost.innerHTML = '';
+    if (!curPass.value) { showMsg('danger', 'اكتب كلمة المرور الحالية أولاً.'); curPass.focus(); return; }
+    if (newPass.value.length < 8) { showMsg('danger', 'كلمة المرور الجديدة يجب أن تكون ٨ أحرف على الأقل.'); newPass.focus(); return; }
+    if (newPass.value !== confPass.value) { showMsg('danger', 'كلمتا المرور غير متطابقتين — أعد كتابة التأكيد.'); confPass.focus(); return; }
+    saveBtn.disabled = true;
     try {
       await apiCall('POST', '/api/admin/password', { current_password: curPass.value, new_password: newPass.value });
-      showToast('تم تغيير كلمة المرور');
       curPass.value = ''; newPass.value = ''; confPass.value = '';
-    } catch (e) { showToast(e.message, true); }
-  };
+      showMsg('ok', 'تم تغيير كلمة المرور بنجاح.');
+      showToast('تم تغيير كلمة المرور');
+    } catch (e) { showMsg('danger', e.message); }
+    finally { saveBtn.disabled = false; }
+  }
+  saveBtn.onclick = save;
+  [curPass, newPass, confPass].forEach(inp =>
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); save(); } }));
 }
 
-/* ===== router ===== */
-const routes = { quick: renderQuickView };
-routes.catalog = renderCatalogView;
-routes.students = renderStudentsView;
-routes.grades = renderGradesView;
-routes.password = renderPasswordView;
+/* ==========================================================================
+   الموجّه والتمهيد
+   ========================================================================== */
+const routes = {
+  quick: renderQuickView,
+  catalog: renderCatalogView,
+  students: renderStudentsView,
+  grades: renderGradesView,
+  password: renderPasswordView,
+};
 
-function route(name) {
-  if (gradesDirty) {
-    if (!confirm('فيه تغييرات غير محفوظة في الدرجات. هل تريد المغادرة دون حفظ؟')) return;
-    gradesDirty = false;
-  }
-  document.querySelectorAll('.nav-btn[data-route]').forEach(b =>
-    b.classList.toggle('active', b.dataset.route === name));
+function doRoute(name) {
+  document.querySelectorAll('.nav-btn[data-route]').forEach(b => {
+    const active = b.dataset.route === name;
+    b.classList.toggle('active', active);
+    if (active) b.setAttribute('aria-current', 'page');
+    else b.removeAttribute('aria-current');
+  });
   Promise.resolve((routes[name] || renderQuickView)())
     .catch(e => showToast(e.message, true));
+}
+
+function route(name) {
+  if (gradesDirty && typeof gradesPrompt === 'function') {
+    gradesPrompt(() => doRoute(name));
+    return;
+  }
+  doRoute(name);
 }
 
 document.querySelectorAll('.nav-btn[data-route]').forEach(b =>
   b.addEventListener('click', () => route(b.dataset.route)));
 
-document.getElementById('logoutBtn').addEventListener('click', async () => {
-  if (gradesDirty && !confirm('فيه تغييرات غير محفوظة في الدرجات. هل تريد تسجيل الخروج دون حفظ؟')) return;
-  try {
-    await apiCall('POST', '/api/admin/logout');
-    location.href = '/admin-login.html';
-  } catch (e) {
-    showToast(e.message, true);
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  const doLogout = async () => {
+    try {
+      await apiCall('POST', '/api/admin/logout');
+      location.href = '/admin-login.html';
+    } catch (e) { showToast(e.message, true); }
+  };
+  if (gradesDirty && typeof gradesPrompt === 'function') {
+    gradesPrompt(doLogout);
+    return;
   }
+  doLogout();
 });
 
 window.addEventListener('beforeunload', (e) => {
@@ -1319,5 +1786,27 @@ window.addEventListener('beforeunload', (e) => {
   e.returnValue = '';
 });
 
-injectIcons();
-apiCall('GET', '/api/admin/me').then(() => route('quick')).catch(() => {});
+function renderBootError() {
+  view.innerHTML = '';
+  const box = el(`<div class="boot-error card">
+    ${iconHtml('alert')}
+    <h2>تعذر فتح لوحة الإدارة</h2>
+    <p>${escapeHtml(NET_ERR)}</p>
+    <button type="button" class="btn btn-primary">${iconHtml('refresh')}إعادة المحاولة</button>
+  </div>`);
+  box.querySelector('button').onclick = boot;
+  view.appendChild(box);
+  injectIcons(box);
+}
+
+function boot() {
+  injectIcons();
+  apiCall('GET', '/api/admin/me')
+    .then(() => route('quick'))
+    .catch((e) => {
+      // فشل 401 يعيد التوجيه من داخل apiCall؛ ما يصل هنا فشل شبكة.
+      if (e && e.message === NET_ERR) renderBootError();
+    });
+}
+
+boot();
