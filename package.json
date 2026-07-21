@@ -16,6 +16,9 @@
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.11.1",
     "express": "^4.22.2",
-    "express-session": "^1.19.0"
+    "express-session": "^1.19.0",
+    "fflate": "0.8.3",
+    "multer": "2.2.0",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   }
 }
