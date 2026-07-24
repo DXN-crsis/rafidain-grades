@@ -679,6 +679,16 @@ async function renderQuickView() {
         body.appendChild(addRow);
         if (quickUI.errors.student) body.appendChild(el(`<p class="field-error">${escapeHtml(quickUI.errors.student)}</p>`));
 
+        // مسار بديل للإدخال اليدوي: استيراد كشف كامل دفعة واحدة من ملف
+        // (public/js/import.js) — الشعبة المختارة هنا تُمرَّر مُهيّأة فتُختصر
+        // خطوة اختيار الشعبة في شاشة الاستيراد.
+        const importBtn = el(`<button type="button" class="btn btn-ghost btn-sm" style="margin-top:var(--space-2)">${iconHtml('upload')}استيراد من ملف</button>`);
+        importBtn.onclick = () => {
+          const path = [deptObj, stageObj, secObj].filter(Boolean).map(x => x.name).join(' — ');
+          openImportFlow({ id: state.sectionId, name: secObj ? secObj.name : '', path });
+        };
+        body.appendChild(importBtn);
+
         if (quickUI.lastStudent) {
           const c = quickUI.lastStudent;
           const note = el(`<div class="inline-note ok" role="status">${iconHtml('checkCircle')}
@@ -1856,6 +1866,7 @@ const routes = {
   catalog: renderCatalogView,
   students: renderStudentsView,
   grades: renderGradesView,
+  import: renderImportView,
   password: renderPasswordView,
 };
 

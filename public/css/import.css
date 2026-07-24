@@ -1,0 +1,214 @@
+/* ==========================================================================
+   استيراد الطلبة من ملف — أنماط خاصة بشاشة الاستيراد فقط
+   مبنية بالكامل على متغيرات ورموز public/css/style.css (لا ألوان جديدة،
+   لا نصف أقطار جديدة، لا ظلال جديدة). خطوات الشاشة تعيد استخدام مكوّن
+   .q-step القائم من الإضافة السريعة لتبقى الهوية البصرية واحدة.
+   ========================================================================== */
+
+.import-flow { max-width: 900px; }
+
+/* ===== خطوة الشعبة: القوائم المتسلسلة داخل بطاقة الخطوة ===== */
+.import-section-picker { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.import-section-picker .input { flex: 1 1 180px; width: auto; }
+
+/* ===== منطقة إفلات الملف ===== */
+.import-drop {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: var(--space-2); text-align: center;
+  min-height: 200px;
+  padding: var(--space-6) var(--space-4);
+  border: 2px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  cursor: pointer;
+  transition: border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
+}
+.import-drop:hover, .import-drop:focus-visible { border-color: var(--accent); background: var(--accent-soft); }
+.import-drop.is-drag { border-color: var(--accent); background: var(--accent-soft); box-shadow: var(--glow-accent); }
+.import-drop-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 64px; height: 64px; border-radius: 50%;
+  background: var(--accent-soft-2); color: var(--accent-text);
+  margin-bottom: var(--space-1);
+}
+.import-drop-icon svg { width: 32px; height: 32px; }
+.import-drop-title { font-weight: 800; font-size: var(--fs-base); color: var(--text); }
+.import-drop-sub { color: var(--text-3); font-size: var(--fs-xs); }
+.import-drop .btn { margin-top: var(--space-2); pointer-events: none; }
+.import-drop-hint { color: var(--text-3); font-size: var(--fs-xs); margin-top: var(--space-3); }
+
+/* ===== شريحة الملف بعد اختياره (مطوية)، مع شريط تقدّم رفع حقيقي ===== */
+.import-file-chip {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: var(--space-4);
+}
+.import-file-chip-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: var(--radius-sm); flex-shrink: 0;
+  background: var(--accent-soft-2); color: var(--accent-text);
+}
+.import-file-chip-icon svg { width: 21px; height: 21px; }
+.import-file-chip-text { flex: 1; min-width: 0; }
+.import-file-chip-name { font-weight: 700; font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.import-file-chip-sub { color: var(--text-3); font-size: var(--fs-xs); }
+
+.import-progress { height: 6px; border-radius: 999px; background: var(--surface); overflow: hidden; margin-top: var(--space-2); }
+.import-progress-fill { height: 100%; width: 0%; background: var(--accent); border-radius: 999px; transition: width 140ms linear; }
+
+/* ===== سطر ما فهمه النظام ===== */
+.import-detect-source { font-size: var(--fs-sm); margin-bottom: 2px; }
+.import-detect-reason { font-size: var(--fs-xs); color: var(--text-2); margin-bottom: var(--space-3); }
+
+/* ===== التحكم بعمود الأسماء ===== */
+.import-override { margin-bottom: var(--space-4); }
+.import-override-body {
+  display: flex; flex-direction: column; gap: var(--space-2);
+  margin-top: var(--space-2);
+  max-width: 460px;
+}
+/* التخصيص أعلاه بنفس وزن [hidden] في ورقة نمط المتصفح، فيفوز الأخير المُعرَّف
+   هنا بترتيب الظهور ويُبقي القسم ظاهراً رغم سمة hidden. اجعل الإخفاء صريحاً. */
+.import-override-body[hidden] { display: none; }
+.import-override-body label { font-weight: 700; font-size: var(--fs-xs); color: var(--text-2); }
+.import-override.is-prominent .inline-note { margin-block: 0 var(--space-3); }
+.override-samples { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+
+/* ===== بطاقات الملخص الخمس ===== */
+.import-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+.import-stat {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px; min-height: 84px;
+  padding: var(--space-3) var(--space-2);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+  transition: transform var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+}
+.import-stat:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--shadow-1); }
+.import-stat:disabled { cursor: default; opacity: 0.5; }
+.import-stat-num { font-family: var(--font-display); font-weight: 600; font-size: var(--fs-2xl); line-height: 1; font-variant-numeric: tabular-nums; }
+.import-stat-label { font-size: var(--fs-xs); font-weight: 700; white-space: nowrap; }
+
+.import-stat.is-valid { border-color: var(--accent-border); }
+.import-stat.is-valid .import-stat-num, .import-stat.is-valid .import-stat-label { color: var(--accent-text); }
+.import-stat.is-dup .import-stat-num, .import-stat.is-dup .import-stat-label { color: var(--text-2); }
+.import-stat.is-skip .import-stat-num, .import-stat.is-skip .import-stat-label { color: var(--text-3); }
+.import-stat.is-invalid { border-color: var(--danger-border); }
+.import-stat.is-invalid .import-stat-num, .import-stat.is-invalid .import-stat-label { color: var(--danger); }
+
+.import-stat.is-active { background: var(--accent-soft); border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
+.import-stat.is-invalid.is-active { background: var(--danger-bg); border-color: var(--danger); box-shadow: none; }
+
+/* ===== شريط أدوات جدول الصفوف ===== */
+.import-rows-toolbar {
+  display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;
+  margin-bottom: var(--space-2);
+}
+.import-rows-count { font-weight: 700; font-size: var(--fs-xs); color: var(--text-2); margin-inline-end: auto; }
+.import-bulk-links { display: flex; gap: var(--space-3); }
+.import-bulk-links button {
+  display: inline-flex; align-items: center;
+  background: none; border: none; padding: 0; min-height: 44px;
+  color: var(--accent-text); font: inherit; font-size: var(--fs-xs); font-weight: 700;
+  cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+}
+.import-bulk-links button:hover { color: var(--accent-hover); }
+
+/* ===== جدول الصفوف — يمرّر عمودياً داخل حاويته فقط، أبداً الصفحة ===== */
+.import-rows-wrap {
+  max-height: 58vh; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  margin-bottom: var(--space-4);
+}
+.import-rows-wrap .table-wrap { overflow-x: auto; }
+.import-rows-wrap table.grades th { position: sticky; top: 0; }
+table.import-rows-table td.import-rownum { direction: ltr; font-variant-numeric: tabular-nums; color: var(--text-3); font-weight: 600; }
+table.import-rows-table td.import-rowname { text-align: start; font-weight: 700; white-space: normal; overflow-wrap: anywhere; }
+table.import-rows-table td.import-reason { text-align: start; white-space: normal; overflow-wrap: anywhere; font-size: var(--fs-xs); color: var(--text-2); }
+table.import-rows-table tr.import-row.is-checked { background: var(--accent-soft); }
+table.import-rows-table tr.import-row.is-checked:nth-child(even) { background: var(--accent-soft); }
+
+.import-check-cell { padding: 0 !important; }
+.import-check-label {
+  display: flex; align-items: center; justify-content: center;
+  min-width: 44px; min-height: 44px; cursor: pointer;
+}
+.import-check-label input { width: 19px; height: 19px; accent-color: var(--accent); cursor: pointer; }
+.import-check-label input:disabled { cursor: not-allowed; opacity: 0.4; }
+
+.import-status-pill {
+  display: inline-flex; align-items: center;
+  padding: 0.2rem 0.65rem; border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--text-2);
+  font-size: var(--fs-xs); font-weight: 700; white-space: nowrap;
+}
+.import-status-pill.is-valid { background: var(--accent-soft); color: var(--accent-text); border-color: var(--accent-border); }
+.import-status-pill.is-dup { background: var(--surface-2); color: var(--text-2); border-color: var(--border-strong); }
+.import-status-pill.is-skip { background: var(--surface-2); color: var(--text-3); border-color: var(--border); }
+.import-status-pill.is-invalid { background: var(--danger-bg); color: var(--danger); border-color: var(--danger-border); }
+
+/* ===== شريط تأكيد الاستيراد الثابت أسفل الجدول (يشارك .grades-actions اللزوجة) ===== */
+.import-confirm-bar { justify-content: space-between; }
+.import-confirm-hint { color: var(--text-3); font-size: var(--fs-xs); font-weight: 600; }
+
+/* ===== انتهاء صلاحية المعاينة — لا يوجد طريق مسدود أبداً ===== */
+.import-expired-actions { display: flex; gap: var(--space-2); margin-top: var(--space-2); }
+
+/* ===== نتيجة الاستيراد ===== */
+.import-result-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-4); }
+.import-rejected-title {
+  display: flex; align-items: center; gap: var(--space-2);
+  font-weight: 800; font-size: var(--fs-sm);
+  margin: var(--space-5) 0 var(--space-3);
+  padding-top: var(--space-4); border-top: 1px solid var(--border);
+}
+.import-rejected-title svg { width: 19px; height: 19px; color: var(--danger); }
+.import-rejected-list .list-row { gap: var(--space-3); }
+.import-rejected-list .list-row .import-reject-reason { color: var(--danger); font-size: var(--fs-xs); font-weight: 700; white-space: nowrap; }
+
+/* ===== ورقة الطباعة — مخفية على الشاشة، وحدها تظهر عند الطباعة ===== */
+.import-print-sheet { display: none; }
+
+@media (max-width: 900px) {
+  .import-rows-wrap { max-height: 50vh; }
+}
+
+@media (max-width: 560px) {
+  .import-drop { min-height: 168px; padding: var(--space-5) var(--space-3); }
+  .import-drop-icon { width: 52px; height: 52px; }
+  .import-drop-icon svg { width: 26px; height: 26px; }
+  .import-stats { grid-template-columns: repeat(2, 1fr); }
+  .import-confirm-bar { flex-direction: column; align-items: stretch; }
+  .import-confirm-bar .btn { width: 100%; }
+  .import-rows-toolbar { flex-direction: column; align-items: stretch; }
+  .import-rows-count { margin-inline-end: 0; }
+}
+
+@media print {
+  body * { visibility: hidden !important; }
+  .import-print-sheet, .import-print-sheet * { visibility: visible !important; }
+  .import-print-sheet {
+    display: block !important;
+    position: absolute; inset: 0; padding: 28pt;
+    background: #fff; color: #000;
+  }
+  .import-print-sheet h2 { font-size: 15pt; margin-bottom: 4pt; }
+  .import-print-sheet .import-print-meta { color: #333; font-size: 10pt; margin-bottom: 16pt; }
+  .import-print-sheet table { width: 100%; border-collapse: collapse; font-size: 11pt; }
+  .import-print-sheet th, .import-print-sheet td {
+    border: 0.75pt solid #444; padding: 6pt 8pt; text-align: start; color: #000;
+  }
+  .import-print-sheet th { background: none; font-weight: 800; }
+  .import-print-sheet td.import-print-examno { direction: ltr; text-align: center; font-variant-numeric: tabular-nums; }
+}
