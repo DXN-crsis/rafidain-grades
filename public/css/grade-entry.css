@@ -1,0 +1,81 @@
+/* ==========================================================================
+   إدخال الدرجات الذكي — أنماط شبكة السجل الكامل
+   ملف منفصل عن style.css كي يبقى التعديل معزولاً وواضح الحدود.
+   يعتمد كلياً على متغيّرات التصميم المعرَّفة في style.css.
+   ========================================================================== */
+
+/* خلية الحقل: موضع نسبي ليجلس زر «إرجاع الحساب التلقائي» في زاويتها. */
+.grades td.is-derived { position: relative; }
+
+.grades input.grade-in {
+  min-height: 44px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  transition: background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+}
+
+/* قيمة محسوبة تلقائياً: تُعرَض بلون الهوية وبخلفية خفيفة لتُقرأ فوراً
+   على أنها ناتج معادلة لا رقم كتبه إنسان. التمييز بالخط والخلفية معاً،
+   لا باللون وحده. */
+.grades input.derived-in.is-auto {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--accent-text);
+  font-weight: 700;
+}
+
+/* تجاوز يدوي على حقل مشتق: يعود إلى مظهر الحقل العادي مع حدّ أوضح، فيبدو
+   الفرق بين «حسبه النظام» و«ثبّته المدرّس» دون الحاجة لتفسير. */
+.grades input.derived-in[data-manual="1"] {
+  background: var(--surface);
+  border-color: var(--border-strong);
+  font-weight: 700;
+}
+
+.restore-auto {
+  position: absolute;
+  inset-inline-start: 2px;
+  top: 2px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-3);
+  cursor: pointer;
+  transition: color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
+}
+.restore-auto svg { width: 14px; height: 14px; }
+.restore-auto:hover { color: var(--accent); background: var(--accent-soft); }
+/* يظهر فقط حين يوجد ما يُرجَع منه — أي عند تجاوز يدوي فعلي. */
+.grades input.derived-in[data-manual="1"] ~ .restore-auto { display: inline-flex; }
+
+/* حالة حفظ الصف: نص صريح إلى جانب اسم الطالب، لا لون وحده. */
+.row-state {
+  display: inline-block;
+  margin-inline-start: var(--space-2);
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.row-state.pending { background: var(--surface-2); color: var(--text-3); }
+.row-state.saving  { background: var(--accent-soft); color: var(--accent-text); }
+.row-state.saved   { background: var(--ok-bg, var(--accent-soft)); color: var(--ok, var(--accent-text)); }
+/* الفشل هو الحالة الوحيدة التي يجب ألّا تمرّ بهدوء. */
+.row-state.failed {
+  background: var(--danger-bg);
+  color: var(--danger);
+  outline: 1px solid var(--danger-border);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grades input.grade-in,
+  .restore-auto { transition: none; }
+}

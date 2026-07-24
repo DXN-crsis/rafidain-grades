@@ -20,6 +20,15 @@ function createApp({ dbPath }) {
       secure: process.env.NODE_ENV === 'production',
     },
   }));
+  // وحدة حساب الدرجات تُقدَّم للمتصفح من مصدرها نفسه في src/grades/calc.js —
+  // لا نسخة ثانية في public/ يمكن أن تنحرف عن الأصل. الخادم والواجهة يحسبان
+  // بالملف ذاته حرفياً، وهو شرط أساسي كي لا تختلف درجة يراها المدرّس عن
+  // درجة يخزّنها الخادم.
+  app.get('/js/grade-calc.js', (req, res) => {
+    res.type('application/javascript');
+    res.sendFile(path.join(__dirname, 'grades', 'calc.js'));
+  });
+
   app.use(express.static(path.join(__dirname, '..', 'public')));
 
   app.get('/api/health', (req, res) => res.json({ ok: true }));

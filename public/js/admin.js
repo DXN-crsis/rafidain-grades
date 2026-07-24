@@ -1392,6 +1392,22 @@ const GRADE_COLS = [
   ['final_grade', 'الدرجة النهائية'],
 ];
 
+// الحقلان المحسوبان تلقائياً من بقية الحقول.
+const DERIVED = ['annual_effort', 'final_grade'];
+
+// هل القيمة المحفوظة لحقل مشتق تساوي ناتج معادلته؟ تُستعمل عند رسم الشبكة
+// للتمييز بين «محسوب تلقائياً» و«تجاوز يدوي وضعه مدرّس» — فالقيمة وحدها لا
+// تكفي للحكم. عند غياب وحدة الحساب نفترض «يدوي» تحفّظاً: الافتراض الآمن هو
+// عدم دهس رقم كتبه إنسان.
+function matchesCanonical(row, field) {
+  const calc = window.RafidainGradeCalc;
+  if (!calc) return false;
+  const computed = field === 'annual_effort'
+    ? calc.computeAnnualEffort(row).value
+    : calc.computeFinalGrade({ annual_effort: row.annual_effort, final_exam: row.final_exam }).value;
+  return computed !== null && Math.abs(Number(row[field]) - computed) <= calc.CONSISTENCY_EPSILON;
+}
+
 // true عندما تكون في شبكة الدرجات تعديلات غير محفوظة؛ يفحصها الموجّه
 // وزر الخروج وbeforeunload كي لا يضيع عمل المدرس دون تنبيه.
 let gradesDirty = false;
@@ -1607,7 +1623,9 @@ async function renderGradesView() {
   function renderFullGrid(rows) {
     const cols = GRADE_COLS;
     const box = el(`<div>
-      <p class="grade-rule-hint">${iconHtml('info')}كل الدرجات من ٠ إلى ١٠٠ — معدل السعي والدرجة النهائية يُحسبان تلقائياً ويمكن تعديلهما يدوياً</p>
+      <p class="grades-count" id="gRemaining" aria-live="polite"></p>
+      <p class="grade-rule-hint">${iconHtml('info')}كل الدرجات من ٠ إلى ١٠٠. معدل السعي والدرجة النهائية يُحسبان تلقائياً — اكتب فوق أيّهما لتثبيت قيمة يدوية، وزر الإرجاع يعيده للحساب التلقائي.</p>
+      <p class="grade-rule-hint">${iconHtml('zap')}اضغط Enter للانتقال إلى الحقل التالي، وعند آخر حقل ينتقل تلقائياً إلى الطالب التالي. الحفظ يجري تلقائياً بعد لحظة من التوقف عن الكتابة.</p>
       <div class="table-wrap"><table class="grades">
         <thead><tr><th>الطالب</th>${cols.map(([, label]) => `<th>${escapeHtml(label)}</th>`).join('')}</tr></thead>
         <tbody></tbody>
@@ -1618,9 +1636,20 @@ async function renderGradesView() {
     for (const r of rows) {
       const tr = el(`<tr data-student="${r.student_id}">
         <td class="subject-name">${escapeHtml(r.student_name)}<br><span class="exam-chip">${escapeHtml(r.exam_number)}</span></td>
-        ${cols.map(([k]) => {
-          const isManual = ['annual_effort', 'final_grade'].includes(k) && r[k] !== null && r[k] !== undefined && r[k] !== '';
-          return `<td><input class="input" data-field="${k}" inputmode="numeric" aria-label="${escapeHtml(r.student_name)}" value="${r[k] ?? ''}"${isManual ? ' data-manual="1"' : ''}></td>`;
+        ${cols.map(([k, label]) => {
+          const derived = DERIVED.includes(k);
+          const val = r[k] ?? '';
+          // حقل مشتق محفوظ سابقاً لا يُفترَض يدوياً لمجرد أنه يحمل قيمة: نقارنه
+          // بناتج معادلته؛ إن طابقه فهو محسوب تلقائياً ويبقى متزامناً، وإن خالفه
+          // فهو تجاوز يدوي حقيقي وضعه مدرّس ولا يجوز أن يدهسه الحساب التلقائي.
+          const isManual = derived && val !== '' && !matchesCanonical(r, k);
+          return `<td class="${derived ? 'is-derived' : ''}">
+            <input class="input grade-in${derived ? ' derived-in' : ''}" data-field="${k}" inputmode="decimal"
+                   aria-label="${escapeHtml(label)} — ${escapeHtml(r.student_name)}"
+                   value="${val}" data-prev="${val}"${isManual ? ' data-manual="1"' : ''}>
+            ${derived ? `<button type="button" class="restore-auto" data-restore="${k}" tabindex="-1"
+                   title="إرجاع الحساب التلقائي" aria-label="إرجاع الحساب التلقائي لحقل ${escapeHtml(label)}">${iconHtml('refresh')}</button>` : ''}
+          </td>`;
         }).join('')}
       </tr>`);
       tbody.appendChild(tr);
@@ -1634,59 +1663,210 @@ async function renderGradesView() {
     gridWrap.appendChild(actions);
     const saveBtn = actions.querySelector('button');
 
-    // حارس الأرقام + الحساب التلقائي + تنقّل لوحة المفاتيح
+    /* ---- تنقّل لوحة المفاتيح، الحساب الحيّ، والحفظ التلقائي ----
+       التنقّل مصمَّم ليد واحدة لا تغادر لوحة المفاتيح: Enter يتقدّم حقلاً حقلاً
+       داخل الطالب، وعند آخر حقل يقفز إلى أول حقل عند الطالب التالي. الأسهم
+       تتحرك مكانياً (والاتجاه أفقياً معكوس لأن الجدول RTL). */
+    const inputsOf = (tr) => [...tr.querySelectorAll('input[data-field]')];
+    const rowsList = () => [...tbody.querySelectorAll('tr')];
+
+    function focusInput(inp) {
+      if (!inp) return;
+      inp.focus();
+      inp.select();
+      inp.closest('tr').scrollIntoView({ block: 'nearest' });
+    }
+
+    // الحقل التالي في ترتيب الإدخال: داخل الطالب أولاً، ثم أول حقل عند التالي.
+    function advance(input, back) {
+      const tr = input.closest('tr');
+      const fields = inputsOf(tr);
+      const i = fields.indexOf(input);
+      if (!back && i < fields.length - 1) return fields[i + 1];
+      if (back && i > 0) return fields[i - 1];
+      const rows = rowsList();
+      const ri = rows.indexOf(tr);
+      const nextRow = back ? rows[ri - 1] : rows[ri + 1];
+      if (!nextRow) return null;
+      const nf = inputsOf(nextRow);
+      return back ? nf[nf.length - 1] : nf[0];
+    }
+
+    function sameFieldInRow(input, dir) {
+      const tr = input.closest('tr');
+      const target = dir < 0 ? tr.previousElementSibling : tr.nextElementSibling;
+      return target ? target.querySelector(`input[data-field="${input.dataset.field}"]`) : null;
+    }
+
     box.querySelectorAll('input[data-field]').forEach(input => {
       input.addEventListener('input', () => {
         input.value = input.value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
         if (parseFloat(input.value) > 100) input.value = '100';
-        if (['annual_effort', 'final_grade'].includes(input.dataset.field)) input.dataset.manual = '1';
+        // الكتابة في حقل مشتق تعني تجاوزاً يدوياً مقصوداً — يُعلَن للخادم.
+        if (DERIVED.includes(input.dataset.field)) input.dataset.manual = '1';
         autoCompute(input.closest('tr'));
-        gradesDirty = true;
-        updateStatus();
+        markRowDirty(input.closest('tr'));
       });
+
       input.addEventListener('keydown', e => {
-        if (!['Enter', 'ArrowDown', 'ArrowUp'].includes(e.key)) return;
-        e.preventDefault();
-        const tr = input.closest('tr');
-        const target = (e.key === 'ArrowUp') ? tr.previousElementSibling : tr.nextElementSibling;
-        if (target) {
-          const next = target.querySelector(`input[data-field="${input.dataset.field}"]`);
-          if (next) { next.focus(); next.select(); }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          input.value = input.dataset.prev || '';
+          if (DERIVED.includes(input.dataset.field)) delete input.dataset.manual;
+          autoCompute(input.closest('tr'));
+          return;
+        }
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          flushRow(input.closest('tr'));
+          focusInput(advance(input, e.shiftKey));
+          return;
+        }
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          focusInput(sameFieldInRow(input, e.key === 'ArrowDown' ? 1 : -1));
+          return;
+        }
+        // الجدول RTL: العمود التالي يقع بصرياً إلى اليسار.
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+          if (input.selectionStart !== input.selectionEnd || input.value.length > 0) {
+            const atEdge = e.key === 'ArrowLeft'
+              ? input.selectionStart === input.value.length
+              : input.selectionStart === 0;
+            if (!atEdge) return; // اترك السهم يحرّك المؤشر داخل النص
+          }
+          e.preventDefault();
+          const fields = inputsOf(input.closest('tr'));
+          const i = fields.indexOf(input);
+          focusInput(e.key === 'ArrowLeft' ? fields[i + 1] : fields[i - 1]);
         }
       });
     });
 
+    // زر «إرجاع الحساب التلقائي» على الحقلين المشتقّين.
+    box.querySelectorAll('[data-restore]').forEach(btn => {
+      btn.onclick = () => {
+        const tr = btn.closest('tr');
+        const inp = tr.querySelector(`input[data-field="${btn.dataset.restore}"]`);
+        delete inp.dataset.manual;
+        autoCompute(tr);
+        markRowDirty(tr);
+        focusInput(inp);
+      };
+    });
+
+    /* الحساب الحيّ يستعمل وحدة الخادم نفسها (src/grades/calc.js تُقدَّم على
+       /js/grade-calc.js)، فلا يمكن أن يختلف رقم يراه المدرّس عن رقم يخزّنه
+       الخادم. إن تعذّر تحميلها لأي سبب نمتنع عن الحساب بدل التخمين بمعادلة
+       ثانية قد تنحرف — الخادم يبقى المرجع ويملأ الحقلين عند الحفظ. */
     function autoCompute(tr) {
+      const calc = window.RafidainGradeCalc;
+      if (!calc) return;
       const get = f => { const i = tr.querySelector(`[data-field="${f}"]`); return i && i.value !== '' ? parseFloat(i.value) : null; };
       const set = (f, v) => {
         const i = tr.querySelector(`[data-field="${f}"]`);
-        if (i && i.dataset.manual !== '1') i.value = v;
+        if (i && i.dataset.manual !== '1') i.value = (v === null ? '' : v);
       };
-      const t1 = get('first_term_avg'), mid = get('midyear'), t2 = get('second_term_avg');
-      if (t1 !== null && mid !== null && t2 !== null) set('annual_effort', Math.round((t1 + mid + t2) / 3));
-      const eff = get('annual_effort'), fin = get('final_exam');
-      if (eff !== null && fin !== null) set('final_grade', Math.round((eff + fin) / 2));
+      set('annual_effort', calc.computeAnnualEffort({
+        first_term_avg: get('first_term_avg'), midyear: get('midyear'), second_term_avg: get('second_term_avg'),
+      }).value);
+      set('final_grade', calc.computeFinalGrade({
+        annual_effort: get('annual_effort'), final_exam: get('final_exam'),
+      }).value);
+      tr.querySelectorAll('input[data-field]').forEach(i => {
+        i.classList.toggle('is-auto', DERIVED.includes(i.dataset.field) && i.dataset.manual !== '1' && i.value !== '');
+      });
     }
 
+    function entryOf(tr) {
+      const entry = { student_id: Number(tr.dataset.student), manual_fields: [] };
+      for (const [k] of cols) {
+        const i = tr.querySelector(`[data-field="${k}"]`);
+        entry[k] = i.value !== '' ? parseFloat(i.value) : null;
+        if (DERIVED.includes(k) && i.dataset.manual === '1') entry.manual_fields.push(k);
+      }
+      return entry;
+    }
+
+    /* ---- الحفظ التلقائي: يبدأ بعد سكون قصير، ولا يفقد إدخالاً أبداً.
+       الفشل يُبقي القيم على الشاشة ويُعلن نفسه بصوت عالٍ بدل أن يبتلعه. ---- */
+    const AUTOSAVE_MS = 1100;
+    const timers = new Map();
+    const dirtyRows = new Set();
+
+    function setRowState(tr, state, msg) {
+      let flag = tr.querySelector('.row-state');
+      if (!flag) {
+        flag = el('<span class="row-state"></span>');
+        tr.querySelector('td').appendChild(flag);
+      }
+      flag.className = `row-state ${state}`;
+      flag.textContent = msg;
+    }
+
+    function markRowDirty(tr) {
+      dirtyRows.add(tr);
+      gradesDirty = true;
+      updateStatus();
+      setRowState(tr, 'pending', 'لم يُحفظ بعد');
+      clearTimeout(timers.get(tr));
+      timers.set(tr, setTimeout(() => saveRow(tr), AUTOSAVE_MS));
+    }
+
+    function flushRow(tr) {
+      if (!dirtyRows.has(tr)) return;
+      clearTimeout(timers.get(tr));
+      saveRow(tr);
+    }
+
+    async function saveRow(tr) {
+      if (!dirtyRows.has(tr)) return;
+      clearTimeout(timers.get(tr));
+      const entry = entryOf(tr);
+      setRowState(tr, 'saving', 'يُحفظ…');
+      try {
+        await apiCall('PUT', '/api/admin/grades', { subject_id: Number(gSub.value), entries: [entry] });
+        dirtyRows.delete(tr);
+        // القيم المحفوظة تصبح مرجع التراجع بـ Escape.
+        tr.querySelectorAll('input[data-field]').forEach(i => { i.dataset.prev = i.value; });
+        setRowState(tr, 'saved', 'محفوظ');
+        setTimeout(() => { if (!dirtyRows.has(tr)) { const f = tr.querySelector('.row-state'); if (f) f.remove(); } }, 2200);
+        if (dirtyRows.size === 0) { gradesDirty = false; unsavedHost.innerHTML = ''; }
+        refreshCounts();
+        updateStatus();
+      } catch (e) {
+        // لا تُمسح القيم ولا يُزال وسم «غير محفوظ» — الإدخال يبقى ملك المدرّس.
+        setRowState(tr, 'failed', 'تعذّر الحفظ');
+        showToast(e.message, true);
+      }
+    }
+
+    function refreshCounts() {
+      const rows = rowsList();
+      gridCounts.total = rows.length;
+      gridCounts.filled = rows.filter(tr => {
+        const fg = tr.querySelector('[data-field="final_grade"]');
+        return fg && fg.value !== '';
+      }).length;
+      const c = gridWrap.querySelector('#gRemaining');
+      if (c) {
+        const left = gridCounts.total - gridCounts.filled;
+        c.textContent = left === 0
+          ? `اكتملت درجات ${countStudents(gridCounts.total)}.`
+          : `بقي ${countStudents(left)} بلا درجة نهائية من أصل ${gridCounts.total}.`;
+      }
+    }
+    refreshCounts();
+
+    // الحفظ اليدوي يبقى موجوداً لمن يفضّل زراً صريحاً — يحفظ كل ما لم يُحفظ.
     saveBtn.onclick = async () => {
-      const entries = [...tbody.querySelectorAll('tr')].map(tr => {
-        const entry = { student_id: Number(tr.dataset.student) };
-        for (const [k] of cols) {
-          const i = tr.querySelector(`[data-field="${k}"]`);
-          entry[k] = i.value !== '' ? parseFloat(i.value) : null;
-        }
-        return entry;
-      });
       saveBtn.disabled = true;
       try {
-        const r = await apiCall('PUT', '/api/admin/grades', { subject_id: Number(gSub.value), entries });
-        gradesDirty = false;
-        unsavedHost.innerHTML = '';
-        saveNote(r.saved);
-        showToast(`تم حفظ درجات ${countStudents(r.saved)}`);
-        updateStatus();
-      } catch (e) { showToast(e.message, true); }
-      finally { saveBtn.disabled = false; }
+        const pending = [...dirtyRows];
+        if (pending.length === 0) { showToast('لا توجد تغييرات غير محفوظة'); return; }
+        for (const tr of pending) await saveRow(tr);
+        if (dirtyRows.size === 0) { saveNote(pending.length); showToast(`تم حفظ درجات ${countStudents(pending.length)}`); }
+      } finally { saveBtn.disabled = false; }
     };
   }
 
