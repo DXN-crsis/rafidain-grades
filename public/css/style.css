@@ -256,6 +256,22 @@ h1, h2, h3 { line-height: 1.45; }
 .delay-1 { animation-delay: 60ms; }
 .delay-2 { animation-delay: 120ms; }
 
+/* ===== حاويات الأيقونات (data-icon) — إصلاح المحاذاة الرأسية =====
+   السبب: injectIcons() يضع innerHTML داخل <span data-icon> وهو صندوق inline؛
+   الـ svg المُحقن نفسه inline فيجلس على خط الأساس (baseline) فيترك الصندوق
+   مساحة تحته لحروف النزول (descenders) فيبدو مرتفعاً عن نص الزر المجاور له.
+   الإصلاح: تحويل الحاوية إلى inline-flex بمحاذاة مركزية، وجعل الـ svg نفسه
+   block كي لا يخضع لحساب سطر النص إطلاقاً. يطبَّق هذا تلقائياً على كل مكان
+   يستخدم النمط نفسه: .icon-btn / .nav-btn / .status-line / .empty-state /
+   .chip وغيرها — جميعها تمرّ عبر نفس span[data-icon] فيُصلَحها إصلاح واحد
+   دون الحاجة لأي تعديل خاص بكل مكوّن على حدة. */
+[data-icon] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+[data-icon] > svg { display: block; }
+
 /* ===== الأزرار ===== */
 .btn {
   display: inline-flex; align-items: center; justify-content: center;
@@ -724,6 +740,160 @@ p.error {
   padding: var(--space-4) var(--space-5) var(--space-5);
 }
 
+/* ==========================================================================
+   بطاقات المواد الرأسية (v5) — تحلّ محلّ جدول الدرجات الأفقي، الشاشة فقط.
+   نسخة الطباعة الأفقية القديمة محفوظة عمداً — أنظر قسم «الطباعة» أسفل
+   الملف وتعليق القرار هناك. القاعدة الجوهرية لم تتغيّر: حقل يظهر فقط إذا
+   وُجدت له قيمة غير فارغة في مادة واحدة على الأقل؛ الدرجة النهائية تظهر
+   دائماً. البطاقة تعرض الحقول نفسها عمودياً (تسمية/قيمة) بدل عمود بجانب
+   عمود، وتُشتق من المصدر نفسه الذي يبني جدول الطباعة في student.js.
+   ========================================================================== */
+.subject-cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+@media (min-width: 640px) {
+  .subject-cards { grid-template-columns: repeat(2, 1fr); }
+}
+
+.subject-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: var(--space-5);
+}
+.subject-card-head {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+  padding-bottom: var(--space-3); margin-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+.subject-card-name { font-weight: 700; font-size: var(--fs-md); }
+
+.subject-grid { display: flex; flex-direction: column; }
+.subject-row {
+  display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3);
+  padding: 0.6rem 0;
+  border-bottom: 1px dashed var(--border);
+}
+.subject-row:last-of-type { border-bottom: none; }
+.subject-row dt { color: var(--text-2); font-weight: 600; font-size: var(--fs-sm); }
+.subject-row dd { font-weight: 700; font-size: var(--fs-base); font-variant-numeric: tabular-nums; }
+.subject-row.subject-row-final {
+  margin-top: var(--space-1); padding-top: var(--space-4);
+  border-top: 2px solid var(--border-strong); border-bottom: none;
+}
+.subject-row.subject-row-final dt { font-weight: 800; color: var(--text); font-size: var(--fs-base); }
+.subject-row.subject-row-final dd { font-size: var(--fs-xl); color: var(--accent-text); font-weight: 800; }
+
+/* ===== بوّابة التشويق — طمس ثم كشف بضغطة واحدة (R3) =====
+   الطمس مسرحي لا أمني: القيم موجودة في الـ DOM دوماً، فقط filter:blur.
+   لا يظهر هذا القسم إطلاقاً في الطباعة — أنظر @media print. */
+.grades-section.is-blurred .blur-target {
+  filter: blur(10px);
+  user-select: none;
+}
+.blur-target { transition: filter var(--t-med) var(--ease); }
+
+.reveal-gate {
+  display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap;
+  background: var(--accent-soft); border: 1.5px solid var(--accent-border);
+  border-radius: var(--radius); padding: var(--space-5);
+  margin-bottom: var(--space-4);
+  transition: opacity var(--t-med) var(--ease), transform var(--t-med) var(--ease);
+}
+.reveal-gate.is-leaving { opacity: 0; transform: translateY(-6px); pointer-events: none; }
+.reveal-gate-text { flex: 1 1 220px; }
+.reveal-gate-title { font-weight: 800; font-size: var(--fs-md); color: var(--text); }
+.reveal-gate-hint { font-size: var(--fs-sm); color: var(--text-2); font-weight: 500; margin-top: 3px; }
+.reveal-gate .btn { flex-shrink: 0; }
+
+/* ===== لافتة النجاح الهادئة — نجاح دون تفوق ===== */
+.success-banner {
+  display: flex; align-items: center; gap: var(--space-3);
+  background: var(--accent-soft); border: 1px solid var(--accent-border);
+  border-inline-start: 4px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.success-banner[hidden] { display: none; }
+.success-banner-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0;
+  background: var(--accent-soft-2); color: var(--accent-text);
+}
+.success-banner-icon svg { width: 23px; height: 23px; }
+.success-banner-title { font-weight: 800; font-size: var(--fs-base); color: var(--text); }
+.success-banner-sub { font-size: var(--fs-sm); color: var(--text-2); font-weight: 500; margin-top: 2px; }
+.success-banner-sub strong { color: var(--accent-text); font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* ===== احتفال التفوق — تراكب كامل، مقيّد بقاعدة الكرامة (R4) =====
+   لا يظهر هذا التراكب إطلاقاً إلا عند نجاح تام + معدل متميز. الرسوب أو
+   النتيجة غير المكتملة لا يصلان إلى هذا الكود أساساً — أنظر showOutcome()
+   في student.js، وهي القاعدة الوحيدة غير القابلة للتفاوض في هذا الملف. */
+.celebration-overlay {
+  position: fixed; inset: 0; z-index: 300;
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--space-4);
+  background: rgba(8, 40, 24, 0.5);
+}
+[data-theme="dark"] .celebration-overlay { background: rgba(0, 0, 0, 0.65); }
+.celebration-overlay[hidden] { display: none; }
+
+.celebration-card {
+  position: relative; width: 100%; max-width: 460px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-3);
+  padding: var(--space-6) var(--space-5) var(--space-5);
+  text-align: center; overflow: hidden;
+  animation: celebrationPop var(--t-med) var(--ease) both;
+}
+@keyframes celebrationPop {
+  from { opacity: 0; transform: scale(0.92) translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+.celebration-close { position: absolute; top: var(--space-3); inset-inline-end: var(--space-3); z-index: 2; }
+.celebration-content { position: relative; z-index: 1; }
+.celebration-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 68px; height: 68px; border-radius: 50%;
+  background: var(--accent-soft-2); color: var(--accent-text);
+  margin-bottom: var(--space-4);
+}
+.celebration-badge svg { width: 36px; height: 36px; }
+.celebration-card h2 {
+  font-family: var(--font-display); font-weight: 650; font-size: var(--fs-lg);
+  color: var(--text); margin-bottom: var(--space-2);
+}
+.celebration-avg { color: var(--text-2); font-size: var(--fs-sm); font-weight: 600; margin-bottom: var(--space-5); }
+.celebration-avg strong {
+  display: block; color: var(--accent-text); font-size: var(--fs-2xl);
+  font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 2px;
+}
+
+.celebration-flourish { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+.confetti-piece {
+  position: absolute; top: -12%; width: 8px; height: 14px; border-radius: 2px;
+  background: var(--g400); opacity: 0.9;
+  animation: confettiFall 2.6s ease-in infinite;
+}
+.confetti-piece:nth-child(1)  { left: 6%;  background: var(--g500);   animation-delay: 0s;   }
+.confetti-piece:nth-child(2)  { left: 16%; background: var(--g300);   animation-delay: .3s;  }
+.confetti-piece:nth-child(3)  { left: 27%; background: var(--accent); animation-delay: .6s;  }
+.confetti-piece:nth-child(4)  { left: 38%; background: var(--g300);   animation-delay: .1s;  }
+.confetti-piece:nth-child(5)  { left: 50%; background: var(--g500);   animation-delay: .5s;  }
+.confetti-piece:nth-child(6)  { left: 62%; background: var(--accent); animation-delay: .2s;  }
+.confetti-piece:nth-child(7)  { left: 73%; background: var(--g300);   animation-delay: .4s;  }
+.confetti-piece:nth-child(8)  { left: 84%; background: var(--g500);   animation-delay: .15s; }
+.confetti-piece:nth-child(9)  { left: 93%; background: var(--accent); animation-delay: .35s; }
+.confetti-piece:nth-child(10) { left: 45%; background: var(--g400);   animation-delay: .55s; }
+@keyframes confettiFall {
+  0%   { transform: translateY(0) rotate(0deg); opacity: 0.95; }
+  100% { transform: translateY(360px) rotate(340deg); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .celebration-flourish { display: none; }
+}
+
 /* ===== الجداول ===== */
 .table-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
@@ -1046,22 +1216,66 @@ table.grades td .input {
   /* يبقى المؤشر «التالي» بإطاره الثابت، ويبقى خيط النهر ساكناً */
 }
 
+/* الجدول الأفقي القديم لنتيجة الطالب — يُبنى دوماً في الـ DOM (من نفس
+   مصدر الحقول الذي يبني بطاقات الشاشة) لكنه مخفي على الشاشة بالكامل؛
+   يظهر فقط عند الطباعة. أنظر قرار الطباعة في @media print أسفل الملف. */
+.print-only { display: none; }
+
 /* ==========================================================================
-   الطباعة — نتيجة الطالب على ورقة نظيفة
-   ========================================================================== */
+   الطباعة — نتيجة الطالب على ورقة A4، الجدول الأفقي القديم بعد إصلاح عطل
+   القطع على حافة الصفحة
+   ==========================================================================
+   قرار صريح من المالك بعد عطل حقيقي: طبع نتيجة كاملة وخرجت الدرجة النهائية
+   وعمود النتيجة عن حافة الورقة تماماً. البطاقات الرأسية (v5) للشاشة فقط؛
+   الطباعة تعيد الجدول الأفقي الذي كان يعجب المالك أصلاً، لكن بصفوف وخط
+   أصغر ليتسع لكل الأعمدة الثمانية الممكنة (المادة + 6 حقول + النتيجة)
+   على عرض صفحة A4 واحدة دون أي قطع.
+   الضمان الرياضي لا التقديري: table-layout:fixed مع أعمدة colgroup بعرض
+   مئوي محسوب في student.js (buildPrintTable) يجعل من المستحيل أن يتجاوز
+   الجدول عرض حاوية الصفحة أياً كان عدد الأعمدة الفعلي (3 عند final_only
+   حتى 8 في الحالة الكاملة) — لا اعتماد على تقليص خط أو حشو فقط كما كان
+   سابقاً. تم التحقق فعلياً بمحاكاة طباعة لحالة 8 أعمدة و3 أعمدة معاً. */
 @media print {
-  .theme-toggle, .result-actions, .no-print, .skip-link, .river-line, #notifStack { display: none !important; }
-  body { background: #fff; color: #000; font-size: 12pt; }
+  @page { size: A4 portrait; margin: 10mm 8mm; }
+
+  .theme-toggle, .result-actions, .no-print, .skip-link, .river-line, #notifStack,
+  .reveal-gate, .success-banner, .celebration-overlay, .subject-cards { display: none !important; }
+  .blur-target { filter: none !important; }
+
+  body { background: #fff; color: #000; font-size: 9pt; line-height: 1.3; }
   .page-aurora::before, .page-aurora::after { display: none !important; }
-  .result-wrap { max-width: none; padding: 0; }
+  .result-wrap { max-width: none; padding: 0; margin: 0; }
   .result-card { border: none; border-radius: 0; box-shadow: none; }
-  .result-head { padding: 0 0 8pt; }
-  .result-head .logo-ring { background: none; border-color: #999; }
-  .result-head .head-sub { color: #333; }
-  .result-identity { padding: 8pt 0; border-bottom: 1.5pt solid #000; }
-  .meta-chips .chip { border: 1pt solid #666; color: #000; background: none; }
-  .result-card .table-wrap { padding: 8pt 0 0; overflow: visible; }
-  table.grades th, table.grades td { border: 0.75pt solid #444; color: #000; background: none !important; }
-  table.grades th { position: static; }
-  .badge-pass, .badge-fail { border: 1pt solid #000; background: none; color: #000; }
+
+  .result-head { padding: 0 0 6pt; gap: 8pt; }
+  .result-head .logo-ring { width: 32pt; height: 32pt; background: none; border-color: #999; }
+  .result-head .school-name { font-size: 13pt; }
+  .result-head .head-sub { color: #333; font-size: 8pt; }
+
+  .result-identity { padding: 6pt 0; border-bottom: 1.25pt solid #000; }
+  .result-identity h1 { font-size: 14pt; margin-bottom: 4pt; }
+  .meta-chips { gap: 5pt; }
+  .meta-chips .chip { border: 0.75pt solid #666; color: #000; background: none; font-size: 8pt; padding: 1pt 6pt; }
+
+  .result-body { padding: 6pt 0 0; }
+
+  .print-only { display: block !important; }
+  .print-table-wrap { overflow: visible; }
+
+  table.print-grades { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  table.print-grades th, table.print-grades td {
+    border: 0.6pt solid #555; color: #000; background: none !important;
+    padding: 3pt 3pt; font-size: 8pt; line-height: 1.25;
+    white-space: normal; overflow-wrap: break-word; text-align: center; vertical-align: middle;
+  }
+  table.print-grades th { font-weight: 700; font-size: 7.5pt; }
+  table.print-grades th:first-child, table.print-grades td:first-child {
+    text-align: start; font-weight: 700; padding-inline-start: 4pt;
+  }
+  table.print-grades td.final-cell { font-weight: 800; }
+  table.print-grades .badge-pass, table.print-grades .badge-fail {
+    border: 0.75pt solid #000; background: none; color: #000;
+    border-radius: 0; padding: 0.5pt 4pt; font-weight: 700; display: inline-block;
+  }
+  table.print-grades tbody tr { break-inside: avoid; page-break-inside: avoid; }
 }
