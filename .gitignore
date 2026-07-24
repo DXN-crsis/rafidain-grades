@@ -6,3 +6,6 @@ node_modules/
 data/
 backups/
 .env
+
+# أدلة عمل الوكلاء الداخلية — ليست جزءاً من المشروع
+.claude/
