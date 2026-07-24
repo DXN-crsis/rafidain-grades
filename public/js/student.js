@@ -250,6 +250,16 @@ if (resultRoot) {
     const celebrationDismissBtn = document.getElementById('celebrationDismiss');
     const celebrationAvgValue = document.getElementById('celebrationAvgValue');
 
+    // صمام أمان بنيوي لقاعدة الكرامة: الطالب الراسب أو غير المكتمل لا تبقى
+    // في صفحته عناصر التهنئة أصلاً — تُنتزع من الـ DOM فوراً، لا تُخفى فقط.
+    // الإخفاء بالـ CSS وحده يعني أن أي خطأ لاحق في ورقة الأنماط قد يُظهر
+    // «مبروك التفوق» لطالب راسب. لا نترك ذلك ممكناً أصلاً.
+    if (!complete || !passing) {
+      [successBanner, celebrationOverlay].forEach((node) => {
+        if (node && node.parentNode) node.parentNode.removeChild(node);
+      });
+    }
+
     let celebrationTimer = null;
     let celebrationReturnFocus = null;
 
