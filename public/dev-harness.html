@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لوحة الإدارة — إعدادية الرافدين المهنية</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/import.css">
+  <link rel="icon" href="/assets/logo.png">
+</head>
+<body class="page-admin">
+<!--
+  DEV-ONLY HARNESS. Renders the real admin panel against a stubbed API so the
+  authenticated views can be inspected without entering credentials. Deleted
+  before commit; never referenced from the product.
+-->
+<script>
+(function () {
+  const DEPTS = [{ id: 1, name: 'تقنيات الحاسوب' }, { id: 2, name: 'الكهرباء' }];
+  const STAGES = { 1: [{ id: 1, name: 'المرحلة الثالثة', department_id: 1 }], 2: [{ id: 2, name: 'المرحلة الثانية', department_id: 2 }] };
+  const SECTIONS = { 1: [{ id: 1, name: 'شعبة أ', stage_id: 1 }, { id: 2, name: 'شعبة ب', stage_id: 1 }], 2: [{ id: 3, name: 'شعبة أ', stage_id: 2 }] };
+  const SUBJECTS = {
+    1: [
+      { id: 1, name: 'البرمجة', stage_id: 1, grade_mode: 'full', sort_order: 1 },
+      { id: 2, name: 'قواعد البيانات', stage_id: 1, grade_mode: 'full', sort_order: 2 },
+      { id: 3, name: 'التربية الرياضية', stage_id: 1, grade_mode: 'final_only', sort_order: 3 },
+    ],
+    2: [{ id: 4, name: 'المكائن الكهربائية', stage_id: 2, grade_mode: 'final_only', sort_order: 1 }],
+  };
+  const STUDENTS = [
+    { id: 1, name: 'علي حسين محمد', exam_number: '16594342', section_id: 1, section_name: 'شعبة أ', stage_name: 'المرحلة الثالثة', department_name: 'تقنيات الحاسوب' },
+    { id: 2, name: 'زهراء كريم عبدالله', exam_number: '15158686', section_id: 1, section_name: 'شعبة أ', stage_name: 'المرحلة الثالثة', department_name: 'تقنيات الحاسوب' },
+    { id: 3, name: 'حسن جواد كاظم', exam_number: '45954549', section_id: 1, section_name: 'شعبة أ', stage_name: 'المرحلة الثالثة', department_name: 'تقنيات الحاسوب' },
+    { id: 4, name: 'مريم صادق علي', exam_number: '22023344', section_id: 2, section_name: 'شعبة ب', stage_name: 'المرحلة الثالثة', department_name: 'تقنيات الحاسوب' },
+  ];
+  const GRADES = {
+    '1:1': [
+      { student_id: 1, student_name: 'علي حسين محمد', exam_number: '16594342', first_term_avg: 88, midyear: 92, second_term_avg: 90, annual_effort: 90, final_exam: 86, final_grade: 88 },
+      { student_id: 2, student_name: 'زهراء كريم عبدالله', exam_number: '15158686', first_term_avg: 95, midyear: 97, second_term_avg: 96, annual_effort: 96, final_exam: 94, final_grade: 95 },
+      { student_id: 3, student_name: 'حسن جواد كاظم', exam_number: '45954549', first_term_avg: null, midyear: null, second_term_avg: null, annual_effort: null, final_exam: null, final_grade: null },
+    ],
+    '1:3': [
+      { student_id: 1, student_name: 'علي حسين محمد', exam_number: '16594342', first_term_avg: null, midyear: null, second_term_avg: null, annual_effort: null, final_exam: null, final_grade: 95 },
+      { student_id: 2, student_name: 'زهراء كريم عبدالله', exam_number: '15158686', first_term_avg: null, midyear: null, second_term_avg: null, annual_effort: null, final_exam: null, final_grade: 98 },
+      { student_id: 3, student_name: 'حسن جواد كاظم', exam_number: '45954549', first_term_avg: null, midyear: null, second_term_avg: null, annual_effort: null, final_exam: null, final_grade: null },
+    ],
+  };
+
+  const q = (url, key) => { const m = url.match(new RegExp(key + '=(\\d+)')); return m ? Number(m[1]) : null; };
+
+  const realFetch = window.fetch.bind(window);
+  window.__harnessCalls = [];
+  window.fetch = async function (url, opts) {
+    const u = String(url);
+    if (!u.includes('/api/')) return realFetch(url, opts);
+    const method = (opts && opts.method) || 'GET';
+    window.__harnessCalls.push(method + ' ' + u);
+    const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
+
+    if (u.includes('/api/admin/me')) return json({ username: 'admin' });
+    if (u.includes('/api/admin/departments') && method === 'GET') return json(DEPTS);
+    if (u.includes('/api/admin/stages') && method === 'GET') return json(STAGES[q(u, 'department_id')] || []);
+    if (u.includes('/api/admin/sections') && method === 'GET') return json(SECTIONS[q(u, 'stage_id')] || []);
+    if (u.includes('/api/admin/subjects') && method === 'GET') return json(SUBJECTS[q(u, 'stage_id')] || []);
+    if (u.includes('/api/admin/grades') && method === 'GET') return json(GRADES[q(u, 'section_id') + ':' + q(u, 'subject_id')] || []);
+    if (u.includes('/api/admin/students') && method === 'GET') {
+      const sec = q(u, 'section_id');
+      return json(sec ? STUDENTS.filter(s => s.section_id === sec) : STUDENTS);
+    }
+    if (u.includes('/api/admin/grades') && method === 'PUT') {
+      const body = JSON.parse(opts.body);
+      return json({ saved: body.entries.length, rows: body.entries });
+    }
+    return json({ ok: true });
+  };
+})();
+</script>
+
+  <a class="skip-link" href="#view">تخطي إلى المحتوى</a>
+
+  <header class="admin-band">
+    <div class="band-inner">
+      <div class="band-brand">
+        <span class="logo-ring band-logo-ring"><img src="/assets/logo.png" alt=""></span>
+        <div class="band-titles">
+          <span class="band-name">إعدادية الرافدين المهنية</span>
+          <span class="band-role">لوحة إدارة النتائج</span>
+        </div>
+      </div>
+      <div class="band-actions">
+        <div class="bell-wrap" id="bellWrap">
+          <button class="icon-btn band-btn" id="notifBell" aria-label="الإشعارات" title="الإشعارات"><span data-icon="bell"></span></button>
+          <span class="notif-badge" id="notifBadge" hidden></span>
+        </div>
+        <button class="icon-btn band-btn" data-theme-icon onclick="toggleTheme()" aria-label="تبديل الوضع الداكن"></button>
+        <button class="icon-btn band-btn" id="logoutBtn" title="تسجيل الخروج" aria-label="تسجيل الخروج"><span data-icon="logout"></span></button>
+      </div>
+    </div>
+    <div class="river-line" aria-hidden="true"></div>
+  </header>
+
+  <div class="admin-shell">
+    <nav class="admin-nav" id="adminNav" aria-label="التنقل الرئيسي">
+      <button class="nav-btn" data-route="quick"><span data-icon="zap"></span>الإضافة السريعة</button>
+      <button class="nav-btn" data-route="catalog"><span data-icon="layers"></span>الأقسام والمراحل</button>
+      <button class="nav-btn" data-route="students"><span data-icon="users"></span>الطلبة</button>
+      <button class="nav-btn" data-route="import"><span data-icon="upload"></span>استيراد من ملف</button>
+      <button class="nav-btn" data-route="grades"><span data-icon="grid"></span>الدرجات</button>
+      <button class="nav-btn" data-route="password"><span data-icon="lock"></span>كلمة المرور</button>
+    </nav>
+    <main class="admin-main" id="view"></main>
+  </div>
+
+  <script src="/js/icons.js"></script>
+  <script src="/js/theme.js"></script>
+  <script src="/js/import.js"></script>
+  <script src="/js/admin.js"></script>
+</body>
+</html>
