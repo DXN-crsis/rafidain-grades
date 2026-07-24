@@ -8,7 +8,7 @@
   <link rel="icon" href="/assets/logo.png">
 </head>
 <body class="page-aurora">
-  <button class="theme-toggle" data-theme-icon onclick="toggleTheme()" aria-label="تبديل الوضع الداكن"></button>
+  <button class="theme-toggle no-print" data-theme-icon onclick="toggleTheme()" aria-label="تبديل الوضع الداكن"></button>
 
   <main class="result-wrap" id="result">
     <div class="result-card rise">
@@ -26,11 +26,39 @@
         <ul class="meta-chips" id="studentMeta"></ul>
       </section>
 
-      <div class="table-wrap">
-        <table class="grades" aria-label="جدول درجات الطالب">
-          <thead id="gradesHead"></thead>
-          <tbody id="gradesBody"></tbody>
-        </table>
+      <div class="result-body">
+        <div class="success-banner no-print" id="successBanner" role="status" hidden>
+          <span class="success-banner-icon" aria-hidden="true"><span data-icon="checkCircle"></span></span>
+          <div class="success-banner-text">
+            <p class="success-banner-title">نتيجتك ناجحة</p>
+            <p class="success-banner-sub">تهانينا على هذا الإنجاز — معدلك العام <strong id="successAvgValue">0</strong>.</p>
+          </div>
+        </div>
+
+        <!-- الشاشة: بطاقات المواد الرأسية خلف بوّابة تشويق (R2 + R3). -->
+        <section class="grades-section is-blurred no-print" id="gradesSection">
+          <div class="reveal-gate" id="revealGate">
+            <div class="reveal-gate-text">
+              <p class="reveal-gate-title">نتيجتك جاهزة</p>
+              <p class="reveal-gate-hint">الدرجات مخفية مؤقتاً لإضافة لحظة تشويق — اضغط للعرض</p>
+            </div>
+            <button type="button" class="btn btn-primary btn-lg" id="revealBtn">
+              <span class="btn-icon" data-icon="lock" aria-hidden="true"></span>
+              <span class="btn-label">اضغط لعرض النتيجة</span>
+            </button>
+          </div>
+          <div class="subject-cards" id="gradesList"></div>
+        </section>
+
+        <!-- الطباعة فقط: الجدول الأفقي القديم، مبني من مصدر الحقول نفسه.
+             لا طمس ولا بوّابة كشف ولا احتفال يصل إلى هذا الجدول إطلاقاً. -->
+        <div class="print-table-wrap print-only" id="printTableWrap">
+          <table class="print-grades" aria-hidden="true">
+            <colgroup id="printColgroup"></colgroup>
+            <thead id="printHead"></thead>
+            <tbody id="printBody"></tbody>
+          </table>
+        </div>
       </div>
 
       <div class="result-actions no-print">
@@ -39,6 +67,26 @@
       </div>
     </div>
   </main>
+
+  <div class="celebration-overlay no-print" id="celebrationOverlay" role="dialog" aria-modal="true" aria-labelledby="celebrationTitle" hidden>
+    <div class="celebration-card">
+      <div class="celebration-flourish" aria-hidden="true">
+        <span class="confetti-piece"></span><span class="confetti-piece"></span><span class="confetti-piece"></span>
+        <span class="confetti-piece"></span><span class="confetti-piece"></span><span class="confetti-piece"></span>
+        <span class="confetti-piece"></span><span class="confetti-piece"></span><span class="confetti-piece"></span>
+        <span class="confetti-piece"></span>
+      </div>
+      <button type="button" class="icon-btn celebration-close" id="celebrationClose" aria-label="إغلاق">
+        <span data-icon="x"></span>
+      </button>
+      <div class="celebration-content">
+        <span class="celebration-badge" aria-hidden="true"><span data-icon="graduationCap"></span></span>
+        <h2 id="celebrationTitle">مبروك التفوق والنجاح الكامل</h2>
+        <p class="celebration-avg">المعدل العام<strong id="celebrationAvgValue">0</strong></p>
+        <button type="button" class="btn btn-primary" id="celebrationDismiss">متابعة</button>
+      </div>
+    </div>
+  </div>
 
   <script src="/js/icons.js"></script>
   <script src="/js/theme.js"></script>
