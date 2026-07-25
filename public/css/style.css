@@ -495,11 +495,24 @@ p.error {
 .add-row { display: flex; gap: var(--space-2); align-items: flex-start; flex-wrap: wrap; }
 .add-row .input { flex: 1 1 190px; width: auto; }
 
-.search-box { position: relative; flex: 1 1 240px; }
-.search-box svg {
+.search-box { position: relative; flex: 1 1 240px; align-self: center; }
+
+/* الأيقونة تُحقن داخل غلاف <span data-icon>، والغلاف — لا الـ svg — هو ما
+   يجب إخراجه من التدفّق. حين كان الـ svg وحده مطلقاً بقي الغلاف سطراً في
+   التدفّق يضيف ارتفاع سطره (٣٠٫٦ بكسل) إلى الصندوق، فصار ارتفاعه ٧٤٫٦ بدل
+   ٤٤، وأصبح top:50% منتصفَ ذلك الارتفاع الزائد فارتفعت الأيقونة ١٥ بكسل
+   فوق منتصف حقل البحث. قيس قبل الإصلاح وبعده. */
+.search-box > [data-icon] {
   position: absolute; inset-inline-start: 0.8rem; top: 50%; transform: translateY(-50%);
-  width: 18px; height: 18px; color: var(--text-3); pointer-events: none;
+  display: inline-flex; align-items: center;
+  color: var(--text-3); pointer-events: none; line-height: 0;
 }
+.search-box > [data-icon] svg { width: 18px; height: 18px; display: block; }
+
+/* القاعدة العامة لكل غلاف أيقونة: صندوق مرن متمركز رأسياً، والـ svg كتلة
+   داخله — كي لا يجلس على خطّ الأساس فيبدو مرتفعاً عن النص المجاور. */
+[data-icon] { display: inline-flex; align-items: center; }
+[data-icon] > svg { display: block; }
 .search-box .input { padding-inline-start: 2.5rem; width: 100%; }
 
 /* ===== الحالات الفارغة ===== */
@@ -1370,3 +1383,64 @@ table.grades td .input {
 
 /* بطاقة الخطوة النشطة في الإضافة السريعة تتنفّس بهدوء عند تفعيلها. */
 .q-step[data-state="active"] { animation: rise var(--t-med) var(--ease) both; }
+
+/* ==========================================================================
+   الطباعة — إعادة تصميم إلى وثيقة رسمية
+   ==========================================================================
+   الحالة السابقة كانت «صفحة ويب مطبوعة»: رقاقات بحوافّ دائرية، وشارات نجاح
+   داخل مربّعات، وترويسة ضعيفة، وثلثا الورقة فراغ بلا أي تذييل. الوثيقة التي
+   تُسلَّم لوليّ أمر أو تُحفَظ في أضبارة المدرسة تحتاج: ترويسة واضحة، كتلة
+   هوية مقروءة، جدول محايد، ومكان للتوقيع والختم. القواعد أدناه تأتي بعد
+   كتلة @media print الأصلية فتغلبها بحكم الترتيب. */
+@media print {
+  /* الرقاقات: نصّ صريح بلا إطار — الإطار الدائري أسلوب شاشة لا وثيقة. */
+  .meta-chips { gap: 0; display: block; }
+  .meta-chips .chip {
+    border: none !important; background: none !important; padding: 0 !important;
+    display: inline; font-size: 9pt; margin-inline-end: 10pt;
+  }
+  .meta-chips .chip-label { color: #444; font-weight: 400; }
+
+  /* شارة النتيجة: كلمة واضحة بلا مربّع. الرسوب يُكتب ولا يُلوَّن دراما. */
+  table.print-grades .badge-pass,
+  table.print-grades .badge-fail {
+    border: none !important; background: none !important;
+    padding: 0 !important; font-weight: 800; font-size: 8.5pt; color: #000;
+  }
+  table.print-grades .badge-fail { text-decoration: underline; }
+
+  /* الترويسة: اسم المدرسة هو العنوان الأول للوثيقة. */
+  .result-head {
+    border-bottom: 2pt solid #000; padding-bottom: 8pt; margin-bottom: 2pt;
+    align-items: center;
+  }
+  .result-head .school-name { font-size: 16pt; font-weight: 800; letter-spacing: 0.2pt; }
+  .result-head .head-sub { font-size: 8.5pt; color: #222; }
+  .result-head .logo-ring { width: 42pt; height: 42pt; border: 1pt solid #000; }
+
+  .result-identity { border-bottom: 0.75pt solid #000; padding-bottom: 7pt; }
+  .result-identity h1 { font-size: 15pt; font-weight: 800; }
+
+  /* الجدول: خطوط داخلية خفيفة وترويسة مميّزة برمادي فاتح يطبع نظيفاً. */
+  table.print-grades { margin-top: 8pt; }
+  table.print-grades th {
+    background: #ececec !important; border-color: #000 !important;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  table.print-grades td { border-color: #777 !important; }
+  table.print-grades tbody tr:last-child td { border-bottom-color: #000 !important; }
+
+  /* التذييل: تاريخ الطباعة ومكان التوقيع والختم — يظهر عند الطباعة فقط. */
+  .print-footer { display: block !important; margin-top: 16pt; }
+  .print-sign {
+    display: flex; justify-content: space-between; gap: 24pt; margin-top: 26pt;
+  }
+  .print-sign > div { flex: 1; text-align: center; font-size: 9pt; }
+  .print-sign .sign-line {
+    border-top: 0.75pt solid #000; margin-top: 30pt; padding-top: 3pt; color: #000;
+  }
+  .print-note {
+    margin-top: 10pt; font-size: 7.5pt; color: #333; text-align: center;
+    border-top: 0.5pt dashed #999; padding-top: 5pt;
+  }
+}

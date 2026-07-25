@@ -61,6 +61,19 @@
         </div>
       </div>
 
+      <!-- تذييل الوثيقة — لا يظهر على الشاشة إطلاقاً، وإنما عند الطباعة فقط
+           (‎.print-only‎). وثيقة تُسلَّم أو تُحفَظ تحتاج تاريخاً ومكان توقيع. -->
+      <footer class="print-footer print-only">
+        <div class="print-sign">
+          <div><div class="sign-line">توقيع مدير المدرسة</div></div>
+          <div><div class="sign-line">ختم المدرسة</div></div>
+        </div>
+        <p class="print-note">
+          وثيقة صادرة إلكترونياً من منصة نتائج إعدادية الرافدين المهنية —
+          تاريخ الطباعة: <span id="printDate"></span>
+        </p>
+      </footer>
+
       <div class="result-actions no-print">
         <button class="btn btn-ghost" id="printBtn"><span data-icon="printer"></span>طباعة النتيجة</button>
         <button class="btn btn-primary" id="backBtn"><span data-icon="arrowRight"></span>استعلام جديد</button>

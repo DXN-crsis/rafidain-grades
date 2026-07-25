@@ -357,6 +357,14 @@ if (resultRoot) {
       finishReveal();
     }
 
+    // تاريخ الطباعة بالتقويم الميلادي وبأرقام عربية، يُملأ مرة عند العرض.
+    const printDateEl = document.getElementById('printDate');
+    if (printDateEl) {
+      printDateEl.textContent = new Date().toLocaleDateString('ar-IQ', {
+        year: 'numeric', month: 'long', day: 'numeric',
+      });
+    }
+
     const printBtn = document.getElementById('printBtn');
     if (printBtn) printBtn.addEventListener('click', () => window.print());
 
