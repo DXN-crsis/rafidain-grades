@@ -281,6 +281,8 @@ const view = document.getElementById('view');
 /* اسم الشعبة الضمنية لمرحلة غير مقسّمة إلى شعب. الطالب يجب أن يرتبط بشعبة
    تقنياً (منها يُعرَف صفّه ومواده)، لكن المدرّس غير ملزَم بالتفكير بذلك: عند
    التخطّي تُنشأ شعبة واحدة بهذا الاسم وتُخفى تسميتها في وثيقة نتيجة الطالب. */
+// ponytail: implicit section row instead of nullable students.section_id, migrate
+// (add students.stage_id, allow NULL section_id) if a stage must have no section at all
 const NO_SECTION_NAME = 'بدون شعبة';
 // قيمة خيار «بدون شعبة» في القوائم المنسدلة قبل أن تُحسم إلى معرّف حقيقي.
 const NO_SECTION_VALUE = '__none__';
