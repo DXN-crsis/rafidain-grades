@@ -3,8 +3,6 @@ const { requireAdmin } = require('../middleware/requireAdmin');
 const calc = require('../grades/calc');
 const resolve = require('../grades/resolve');
 
-// FIELDS مصدرها الآن src/grades/calc.js — نفس المصفوفة بالضبط (الحقول
-// الستة بترتيب عرضها)، حتى لا يوجد تعريفان لنفس القائمة قد ينحرفان.
 const FIELDS = calc.FIELDS;
 
 function validGrade(v) {
@@ -32,9 +30,6 @@ function gradesRouter(db) {
     res.json(rows);
   });
 
-  // جلب الطالب + مرحلة شعبته + صف درجاته الحالي لهذه المادة (إن وجد) في
-  // استعلام واحد — يخدم فحص تطابق المرحلة (كان موجوداً) وحسم الحقول
-  // المشتقة (جديد: نحتاج القيم المحفوظة سابقاً لدمجها مع ما لم يُرسَل الآن).
   const studentForGrading = db.prepare(`
     SELECT sec.stage_id AS stage_id,
            g.first_term_avg, g.midyear, g.second_term_avg,
@@ -51,9 +46,6 @@ function gradesRouter(db) {
       return res.status(400).json({ error: 'بيانات غير صالحة' });
     }
 
-    // ---- المرحلة ١: شكل كل عنصر، حدود كل درجة، وشكل manual_fields إن وُجد.
-    // فحوصات بنيوية بحتة لا تحتاج قاعدة البيانات، تماماً كما كانت سابقاً،
-    // مع إضافة فحص شكل manual_fields (M3: راية التجاوز اليدوي الصريحة). ----
     for (const e of entries) {
       if (!e || typeof e !== 'object') {
         return res.status(400).json({ error: 'بيانات غير صالحة' });
@@ -69,15 +61,11 @@ function gradesRouter(db) {
       }
     }
 
-    // ---- المرحلة ٢: المادة موجودة، ومرحلتها معروفة (تُستخدم أدناه لفحص
-    // تطابق المرحلة ولتحديد نمط سجل الدرجات: كامل أم نهائية فقط). ----
     const subject = db.prepare('SELECT id, stage_id, grade_mode FROM subjects WHERE id = ?').get(subject_id);
     if (!subject) {
       return res.status(404).json({ error: 'المادة غير موجودة' });
     }
 
-    // ---- المرحلة ٣: مادة «نهائية فقط» لا تقبل حقولاً تفصيلية إطلاقاً —
-    // (M2: يجب معاملة هذه الحالة بتعمّد، لا تجاهلها أو قبولها بصمت). ----
     if (subject.grade_mode === 'final_only') {
       for (const e of entries) {
         const violation = resolve.findFinalOnlyViolation(e);
@@ -87,12 +75,6 @@ function gradesRouter(db) {
       }
     }
 
-    // ---- المرحلة ٤: لكل عنصر — الطالب موجود، مادته تطابق مرحلته (فحوصات
-    // قديمة دون تغيير)، ثم (لمادة السجل الكامل فقط) حسم الحقلين المشتقّين:
-    // تصديق تجاوز يدوي صريح، أو إعادة حساب من المكوّنات الفعلية، أو رفض
-    // الإرسال كله إن تناقضت قيمة مُرسلة غير يدوية مع حساب مكتمل. يتم هذا
-    // بالكامل قبل أي كتابة — فشل عنصر واحد يمنع كتابة الجميع، تماماً كما كان
-    // سلوك فحص المرحلة سابقاً؛ لا تناقض حسابي يُكتَب أبداً في القاعدة. ----
     const resolutions = new Array(entries.length);
     const storedRows = new Array(entries.length);
     for (let i = 0; i < entries.length; i++) {
@@ -115,11 +97,6 @@ function gradesRouter(db) {
       }
     }
 
-    // ---- المرحلة ٥: بناء الصفوف النهائية للكتابة. آلية has_<field> في
-    // SQL أدناه غير معدَّلة إطلاقاً؛ الجديد فقط أن الحقلين annual_effort
-    // و final_grade في مادة السجل الكامل يُبنيان الآن من قرار resolve.js
-    // (قيمة صريحة تُكتب، أو حذف المفتاح فيُحفَظ القديم) بدل المرور الحرفي
-    // لما أرسله العميل. مادة «نهائية فقط» تمر دون أي تعديل كما كانت. ----
     const resolvedEntries = entries.map((e, i) => {
       if (subject.grade_mode === 'final_only') return e;
       const r = resolutions[i];
@@ -164,11 +141,6 @@ function gradesRouter(db) {
       throw e;
     }
 
-    // ---- المرحلة ٦: الرد يحمل، إضافةً إلى العدد المحفوظ (كما كان، ليبقى
-    // العميل القديم يعمل دون تعديل)، القيم الفعلية الموثوقة لكل طالب — كي
-    // تعرض الواجهة رقم الخادم لا تخمينها الخاص، دون الحاجة لإعادة تحميل
-    // الشبكة بعد كل حفظ (مفيد خصوصاً للحفظ التلقائي). إضافة اختيارية بحتة:
-    // أي عميل لا يقرأ rows لا يتأثر إطلاقاً. ----
     const rows = entries.map((e, i) => {
       const stored = storedRows[i];
       if (subject.grade_mode === 'final_only') {

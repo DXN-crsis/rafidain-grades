@@ -1,12 +1,3 @@
-/* واجهة الطالب: صفحة الاستعلام (index.html) وصفحة النتيجة (student.html).
-   ملاحظة ثابتة: القاعدة الجوهرية لاشتقاق حقول النتيجة ما تزال مجمّدة — حقل
-   يظهر فقط إذا وُجدت له قيمة غير فارغة في مادة واحدة على الأقل ضمن نتيجة
-   الطالب نفسه؛ الدرجة النهائية تظهر دائماً. الشكل تغيّر بأمر صريح من المالك
-   (بطاقات رأسية على الشاشة) لكن هذه القاعدة نفسها لم تتغيّر — انظر حساب
-   المتغيّر fields أدناه؛ يُستخدم المصدر نفسه لبناء بطاقات الشاشة وجدول
-   الطباعة الأفقي معاً فلا يمكن أن يختلفا. أي تعديل على القاعدة نفسها
-   يتطلب قراراً جديداً من المالك. */
-
 const NET_ERR = 'تعذر الاتصال بالخادم. تأكد من تشغيل الخادم ثم حاول مرة أخرى.';
 
 function escapeHtml(s) {
@@ -17,7 +8,6 @@ function escapeHtml(s) {
 
 const examInput = document.getElementById('exam');
 if (examInput) {
-  // ---- صفحة الاستعلام ----
   const btn = document.getElementById('loginBtn');
   const errEl = document.getElementById('error');
 
@@ -42,10 +32,7 @@ if (examInput) {
         errEl.hidden = false;
         return;
       }
-      // استجابة /api/student/lookup لا تُعيد الرقم الامتحاني نفسه — نضيفه هنا
-      // وقت الاستعلام لأن صفحة النتيجة تحتاجه كمفتاح ثبات الكشف في
-      // localStorage (revealed:<exam_number>). لا تُحفظ أي درجة في
-      // localStorage أبداً — فقط علم الكشف المنطقي هذا.
+
       data.exam_number = num;
       sessionStorage.setItem('studentData', JSON.stringify(data));
       location.href = '/student.html';
@@ -63,16 +50,9 @@ if (examInput) {
 
 const resultRoot = document.getElementById('result');
 if (resultRoot) {
-  // ---- صفحة النتيجة ----
-
-  // ثوابت قابلة للضبط من مكان واحد:
-  // طلب المالك أصلاً مهلة 60 ثانية (60000ms) قبل ظهور الاحتفال بعد الكشف؛
-  // اعتُمد بديل أقصر بكثير هنا لأن أغلب الطلبة يغادرون الصفحة أو يلتقطون
-  // صورة للشاشة قبل مرور دقيقة كاملة على كشف النتيجة، فتفوت اللحظة كلياً.
-  // لإعادة الرقم الأصلي الذي طلبه المالك: غيّر القيمة أدناه إلى 60000 فقط.
   const CELEBRATION_DELAY_MS = 2500;
   const CELEBRATION_AUTO_DISMISS_MS = 7000;
-  // حدّ «التفوق»: نجاح تام + معدل عام يساوي هذا الرقم أو يتجاوزه.
+
   const DISTINCTION_AVERAGE_THRESHOLD = 85;
 
   const raw = sessionStorage.getItem('studentData');
@@ -81,12 +61,9 @@ if (resultRoot) {
     const data = JSON.parse(raw);
     document.getElementById('studentName').textContent = data.name;
 
-    // بطاقة الهوية: القسم والمرحلة والشعبة كرقاقات (بناء DOM آمن دون innerHTML).
     const metaEl = document.getElementById('studentMeta');
     metaEl.innerHTML = '';
-    // مرحلة غير مقسّمة إلى شعب تحمل شعبة ضمنية اسمها «بدون شعبة» (تفصيل داخلي
-    // يخصّ ربط الطالب بمرحلته). لا تُعرَض رقاقتها في وثيقة النتيجة: كتابة
-    // «الشعبة: بدون شعبة» على وثيقة رسمية ركاكة، وغيابها أوضح وأصدق.
+
     const chips = [['القسم', data.department], ['المرحلة', data.stage]];
     if (data.section && data.section !== 'بدون شعبة') chips.push(['الشعبة', data.section]);
     chips.forEach(([label, value]) => {
@@ -109,17 +86,10 @@ if (resultRoot) {
       ['final_grade', 'الدرجة النهائية'],
     ];
 
-    // حقل التفصيل يُعرض فقط إذا وُجدت له قيمة غير فارغة في مادة واحدة على
-    // الأقل ضمن نتيجة هذا الطالب. الدرجة النهائية تُعرض دائماً. بطاقات
-    // الشاشة وجدول الطباعة كلاهما يُبنيان من هذه القائمة نفسها فلا يمكن أن
-    // يختلفا — تماماً كما كان عمود الجدول القديم يُشتق مرة واحدة لكل الصفوف.
     const fields = FULL_FIELDS.filter(([key]) =>
       key === 'final_grade' || data.subjects.some(sub => sub[key] != null)
     );
 
-    // ============================================================
-    // الشاشة: بطاقات المواد الرأسية (R2)
-    // ============================================================
     const gradesList = document.getElementById('gradesList');
     data.subjects.forEach(sub => {
       const card = document.createElement('article');
@@ -154,15 +124,6 @@ if (resultRoot) {
       gradesList.appendChild(card);
     });
 
-    // ============================================================
-    // الطباعة فقط: الجدول الأفقي القديم (إصلاح عطل القطع — أنظر أسفل
-    // الملف والتعليق في CSS تحت @media print). يُبنى من data ومصدر
-    // الحقول نفسه أعلاه، بلا طمس وبلا أي اعتماد على حالة الكشف على
-    // الشاشة، لأن الطباعة يجب أن تُخرج القيم الحقيقية دوماً.
-    // colgroup بعرض محسوب (وليس CSS ثابت) لأن عدد الأعمدة يتراوح بين 3
-    // (final_only) و8 (الحالة الكاملة)؛ table-layout:fixed + هذا العرض
-    // يضمنان رياضياً أن الجدول لا يتجاوز عرض صفحة A4 أياً كان العدد.
-    // ============================================================
     function buildPrintTable() {
       const SUBJECT_PCT = 20;
       const STATUS_PCT = 9;
@@ -199,7 +160,6 @@ if (resultRoot) {
     }
     buildPrintTable();
 
-    // عدّادات متحركة لبطاقات الشاشة — تُتخطى كلياً عند تفعيل «تقليل الحركة».
     const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     function formatAvg(n) {
@@ -233,13 +193,6 @@ if (resultRoot) {
       });
     }
 
-    // ============================================================
-    // نتيجة الطالب: ناجح/راسب/غير مكتمل + المعدل العام
-    // «ناجح» = نتيجة مكتملة (كل مادة تحمل درجة نهائية) وكل درجة نهائية
-    // فيها 50 فأكثر. أي نتيجة غير مكتملة (مادة بلا درجة نهائية بعد) لا
-    // تُحتسب كنجاح ولا كرسوب — لا احتفال إطلاقاً، تماماً مثل الرسوب. هذا
-    // هو صمام أمان قاعدة الكرامة في R4، وهو غير قابل للتفاوض.
-    // ============================================================
     const gradedSubjects = data.subjects.filter(s => s.final_grade != null);
     const complete = data.subjects.length > 0 && gradedSubjects.length === data.subjects.length;
     const passing = complete && gradedSubjects.every(s => s.final_grade >= 50);
@@ -247,7 +200,6 @@ if (resultRoot) {
       ? gradedSubjects.reduce((sum, s) => sum + s.final_grade, 0) / gradedSubjects.length
       : null;
 
-    // ---- R4: لافتة النجاح الهادئة أو تراكب التفوق — لا شيء عند الرسوب/النقص ----
     const successBanner = document.getElementById('successBanner');
     const successAvgValue = document.getElementById('successAvgValue');
     const celebrationOverlay = document.getElementById('celebrationOverlay');
@@ -255,10 +207,6 @@ if (resultRoot) {
     const celebrationDismissBtn = document.getElementById('celebrationDismiss');
     const celebrationAvgValue = document.getElementById('celebrationAvgValue');
 
-    // صمام أمان بنيوي لقاعدة الكرامة: الطالب الراسب أو غير المكتمل لا تبقى
-    // في صفحته عناصر التهنئة أصلاً — تُنتزع من الـ DOM فوراً، لا تُخفى فقط.
-    // الإخفاء بالـ CSS وحده يعني أن أي خطأ لاحق في ورقة الأنماط قد يُظهر
-    // «مبروك التفوق» لطالب راسب. لا نترك ذلك ممكناً أصلاً.
     if (!complete || !passing) {
       [successBanner, celebrationOverlay].forEach((node) => {
         if (node && node.parentNode) node.parentNode.removeChild(node);
@@ -306,20 +254,12 @@ if (resultRoot) {
       else animateAverage(successAvgValue, average);
     }
 
-    // القاعدة الوحيدة غير القابلة للتفاوض في R4: رسوب أو نتيجة غير مكتملة =
-    // لا شيء احتفالي إطلاقاً، لا رسالة، لا حركة، لا لون درامي. الصفحة تبقى
-    // محايدة وواقعية فقط. لا تُضف هنا أي فرع "رسالة تعزية" مهما كان لطيفاً.
     function showOutcome() {
       if (!complete || !passing) return;
       if (average >= DISTINCTION_AVERAGE_THRESHOLD) openCelebration();
       else openSuccessBanner();
     }
 
-    // ============================================================
-    // R3: بوّابة التشويق (طمس ثم كشف) بثبات عبر التحديث والجلسات،
-    // مفتاحها الرقم الامتحاني في localStorage. الطمس مسرحي لا أمني —
-    // القيم موجودة في الـ DOM دوماً، فقط filter:blur تُزال بالكشف.
-    // ============================================================
     const gradesSection = document.getElementById('gradesSection');
     const revealGate = document.getElementById('revealGate');
     const revealBtn = document.getElementById('revealBtn');
@@ -334,8 +274,6 @@ if (resultRoot) {
     }
 
     if (alreadyRevealed) {
-      // مُكشوفة مسبقاً (تحديث الصفحة أو زيارة سابقة) — لا بوّابة ولا طمس،
-      // والقيم تُعرض مباشرة دون إعادة تشغيل عدّاد العدّ التصاعدي في كل مرة.
       if (revealGate) revealGate.remove();
       gradesSection.classList.remove('is-blurred');
       finishReveal();
@@ -352,12 +290,10 @@ if (resultRoot) {
         finishReveal();
       }, { once: true });
     } else {
-      // دفاعي: لا تحجب النتيجة عن الطالب إن كانت عناصر البوّابة مفقودة لأي سبب.
       gradesSection.classList.remove('is-blurred');
       finishReveal();
     }
 
-    // تاريخ الطباعة بالتقويم الميلادي وبأرقام عربية، يُملأ مرة عند العرض.
     const printDateEl = document.getElementById('printDate');
     if (printDateEl) {
       printDateEl.textContent = new Date().toLocaleDateString('ar-IQ', {

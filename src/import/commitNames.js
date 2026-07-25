@@ -1,12 +1,3 @@
-// The commit half of the two-phase contract.
-//
-// The client's list is NEVER trusted: every name is re-cleaned, re-deduplicated
-// against the request itself AND against the section's current students
-// (orthography-blind comparison), and only then inserted — all inside one
-// better-sqlite3 transaction, so a failure anywhere writes nothing at all.
-// Every submitted name is accounted for: it comes back either in `students`
-// or in `rejected` with an Arabic reason.
-
 const { generateExamNumber } = require('../examNumber');
 const { cleanCell, normalizeForCompare } = require('./normalize');
 

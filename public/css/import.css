@@ -1,17 +1,8 @@
-/* ==========================================================================
-   استيراد الطلبة من ملف — أنماط خاصة بشاشة الاستيراد فقط
-   مبنية بالكامل على متغيرات ورموز public/css/style.css (لا ألوان جديدة،
-   لا نصف أقطار جديدة، لا ظلال جديدة). خطوات الشاشة تعيد استخدام مكوّن
-   .q-step القائم من الإضافة السريعة لتبقى الهوية البصرية واحدة.
-   ========================================================================== */
-
 .import-flow { max-width: 900px; }
 
-/* ===== خطوة الشعبة: القوائم المتسلسلة داخل بطاقة الخطوة ===== */
 .import-section-picker { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .import-section-picker .input { flex: 1 1 180px; width: auto; }
 
-/* ===== منطقة إفلات الملف ===== */
 .import-drop {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: var(--space-2); text-align: center;
@@ -37,7 +28,6 @@
 .import-drop .btn { margin-top: var(--space-2); pointer-events: none; }
 .import-drop-hint { color: var(--text-3); font-size: var(--fs-xs); margin-top: var(--space-3); }
 
-/* ===== شريحة الملف بعد اختياره (مطوية)، مع شريط تقدّم رفع حقيقي ===== */
 .import-file-chip {
   display: flex; align-items: center; gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
@@ -59,25 +49,21 @@
 .import-progress { height: 6px; border-radius: 999px; background: var(--surface); overflow: hidden; margin-top: var(--space-2); }
 .import-progress-fill { height: 100%; width: 0%; background: var(--accent); border-radius: 999px; transition: width 140ms linear; }
 
-/* ===== سطر ما فهمه النظام ===== */
 .import-detect-source { font-size: var(--fs-sm); margin-bottom: 2px; }
 .import-detect-reason { font-size: var(--fs-xs); color: var(--text-2); margin-bottom: var(--space-3); }
 
-/* ===== التحكم بعمود الأسماء ===== */
 .import-override { margin-bottom: var(--space-4); }
 .import-override-body {
   display: flex; flex-direction: column; gap: var(--space-2);
   margin-top: var(--space-2);
   max-width: 460px;
 }
-/* التخصيص أعلاه بنفس وزن [hidden] في ورقة نمط المتصفح، فيفوز الأخير المُعرَّف
-   هنا بترتيب الظهور ويُبقي القسم ظاهراً رغم سمة hidden. اجعل الإخفاء صريحاً. */
+
 .import-override-body[hidden] { display: none; }
 .import-override-body label { font-weight: 700; font-size: var(--fs-xs); color: var(--text-2); }
 .import-override.is-prominent .inline-note { margin-block: 0 var(--space-3); }
 .override-samples { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
 
-/* ===== بطاقات الملخص الخمس ===== */
 .import-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
@@ -109,7 +95,6 @@
 .import-stat.is-active { background: var(--accent-soft); border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
 .import-stat.is-invalid.is-active { background: var(--danger-bg); border-color: var(--danger); box-shadow: none; }
 
-/* ===== شريط أدوات جدول الصفوف ===== */
 .import-rows-toolbar {
   display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;
   margin-bottom: var(--space-2);
@@ -124,7 +109,6 @@
 }
 .import-bulk-links button:hover { color: var(--accent-hover); }
 
-/* ===== جدول الصفوف — يمرّر عمودياً داخل حاويته فقط، أبداً الصفحة ===== */
 .import-rows-wrap {
   max-height: 58vh; overflow-y: auto;
   border: 1px solid var(--border); border-radius: var(--radius-sm);
@@ -158,14 +142,11 @@ table.import-rows-table tr.import-row.is-checked:nth-child(even) { background: v
 .import-status-pill.is-skip { background: var(--surface-2); color: var(--text-3); border-color: var(--border); }
 .import-status-pill.is-invalid { background: var(--danger-bg); color: var(--danger); border-color: var(--danger-border); }
 
-/* ===== شريط تأكيد الاستيراد الثابت أسفل الجدول (يشارك .grades-actions اللزوجة) ===== */
 .import-confirm-bar { justify-content: space-between; }
 .import-confirm-hint { color: var(--text-3); font-size: var(--fs-xs); font-weight: 600; }
 
-/* ===== انتهاء صلاحية المعاينة — لا يوجد طريق مسدود أبداً ===== */
 .import-expired-actions { display: flex; gap: var(--space-2); margin-top: var(--space-2); }
 
-/* ===== نتيجة الاستيراد ===== */
 .import-result-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-4); }
 .import-rejected-title {
   display: flex; align-items: center; gap: var(--space-2);
@@ -177,7 +158,6 @@ table.import-rows-table tr.import-row.is-checked:nth-child(even) { background: v
 .import-rejected-list .list-row { gap: var(--space-3); }
 .import-rejected-list .list-row .import-reject-reason { color: var(--danger); font-size: var(--fs-xs); font-weight: 700; white-space: nowrap; }
 
-/* ===== ورقة الطباعة — مخفية على الشاشة، وحدها تظهر عند الطباعة ===== */
 .import-print-sheet { display: none; }
 
 @media (max-width: 900px) {

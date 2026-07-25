@@ -1,7 +1,6 @@
 const express = require('express');
 const { requireAdmin } = require('../middleware/requireAdmin');
 
-// Generic CRUD factory for the three catalog levels.
 function crud(router, db, table, { parentCol, dupError, listSql }) {
   const base = `/${table}`;
 
@@ -56,7 +55,6 @@ function crud(router, db, table, { parentCol, dupError, listSql }) {
   });
 }
 
-// Departments are listed with stage/student counts for the dashboard cards.
 const DEPARTMENTS_LIST_SQL = `
   SELECT d.id, d.name,
     (SELECT COUNT(*) FROM stages s WHERE s.department_id = d.id) AS stage_count,

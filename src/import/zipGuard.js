@@ -1,17 +1,9 @@
-// Zip container inspection for untrusted uploads.
-//
-// XLSX and DOCX are zip archives, which makes a zip bomb a real attack here:
-// a 60 KB upload can declare gigabytes of uncompressed content. This module
-// walks the archive's directory WITHOUT inflating anything (fflate's filter
-// callback runs before inflation) and rejects archives whose declared sizes
-// are out of all proportion to a school roster.
-
 const { unzipSync } = require('fflate');
 
 const LIMITS = {
   maxEntries: 4096,
-  maxEntryBytes: 30 * 1024 * 1024,  // any single member
-  maxTotalBytes: 50 * 1024 * 1024,  // whole archive, uncompressed
+  maxEntryBytes: 30 * 1024 * 1024,
+  maxTotalBytes: 50 * 1024 * 1024,
 };
 
 class ImportError extends Error {
@@ -25,7 +17,6 @@ class ImportError extends Error {
 const ERR_CORRUPT = 'تعذر قراءة الملف — يبدو أنه تالف أو غير مكتمل. أعد حفظ الملف ثم حاول مرة أخرى';
 const ERR_BOMB = 'الملف مضغوط بشكل غير طبيعي ولا يمكن قبوله';
 
-// Returns the entry names after validating declared sizes. Throws ImportError.
 function inspectZip(buffer) {
   const names = [];
   let total = 0;
@@ -40,7 +31,7 @@ function inspectZip(buffer) {
         total += size;
         if (total > LIMITS.maxTotalBytes) throw new ImportError(ERR_BOMB);
         names.push(entry.name);
-        return false; // never inflate during inspection
+        return false;
       },
     });
   } catch (e) {
@@ -50,7 +41,6 @@ function inspectZip(buffer) {
   return names;
 }
 
-// Inflates exactly one entry from an already-inspected archive.
 function readZipEntry(buffer, entryName) {
   let out = null;
   try {

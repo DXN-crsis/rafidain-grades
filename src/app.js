@@ -9,7 +9,6 @@ function createApp({ dbPath }) {
   app.set('trust proxy', 1);
   app.use(express.json());
   app.use(session({
-    // Sessions persist in the SQLite file so a deploy/restart does not log the admin out.
     store: new SqliteSessionStore({ dbPath }),
     secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
     resave: false,
@@ -20,10 +19,7 @@ function createApp({ dbPath }) {
       secure: process.env.NODE_ENV === 'production',
     },
   }));
-  // وحدة حساب الدرجات تُقدَّم للمتصفح من مصدرها نفسه في src/grades/calc.js —
-  // لا نسخة ثانية في public/ يمكن أن تنحرف عن الأصل. الخادم والواجهة يحسبان
-  // بالملف ذاته حرفياً، وهو شرط أساسي كي لا تختلف درجة يراها المدرّس عن
-  // درجة يخزّنها الخادم.
+
   app.get('/js/grade-calc.js', (req, res) => {
     res.type('application/javascript');
     res.sendFile(path.join(__dirname, 'grades', 'calc.js'));
@@ -33,7 +29,6 @@ function createApp({ dbPath }) {
 
   app.get('/api/health', (req, res) => res.json({ ok: true }));
 
-  // Routes are mounted here by later tasks.
   const { createDb } = require('./db');
   app.locals.db = createDb(dbPath);
 
@@ -55,13 +50,10 @@ function createApp({ dbPath }) {
   const { studentLookupRouter } = require('./routes/student');
   app.use('/api/student', studentLookupRouter(app.locals.db));
 
-  // JSON 404 fallback for unmatched API routes (must not affect static/HTML serving).
   app.use('/api', (req, res) => {
     res.status(404).json({ error: 'المسار غير موجود' });
   });
 
-  // Terminal error handler: never leak stack traces / HTML error pages to clients.
-  // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {
     console.error(err);
     const status = err.status && err.status < 500 ? err.status : 500;

@@ -1,17 +1,3 @@
-/* ==========================================================================
-   منصة الرافدين — نظام التصميم v4.1
-   إعدادية الرافدين المهنية — منصة النتائج
-
-   الهوية: «الرافدين» يحضر همساً لا صخباً — خيط نهر رفيع متدرج (river-line)
-   هو التوقيع الوحيد، فوق أساس SaaS حديث: أسطح نظيفة، وهج أخضر ناعم في
-   خلفيات الصفحات العامة (aurora)، بطاقة زجاجية واحدة مركّزة، ظلال طبقية
-   خافتة، لون واحد مُشبع. لا شرائط ضخمة ولا زخارف.
-
-   الخطوط (مستضافة محلياً): Reem Kufi للعناوين، Tajawal للنصوص — رخصة OFL.
-   الأيقونات: Phosphor Duotone مضمّنة في icons.js — رخصة MIT.
-   ========================================================================== */
-
-/* ===== الخطوط ===== */
 @font-face {
   font-family: 'Tajawal';
   src: url('../fonts/tajawal-v12-arabic_latin-regular.woff2') format('woff2');
@@ -45,19 +31,15 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F;
 }
 
-/* ===== المتغيرات ===== */
 :root {
-  /* سُلَّم الأخضر — مشتق من أخضر المدرسة #0d7a3f */
   --g50: #eef7f1; --g100: #d9eee2; --g200: #b7dfc8; --g300: #8ccaa6;
   --g400: #57ae7e; --g500: #2f9260; --g600: #0d7a3f; --g700: #0b6435;
   --g800: #0a502c; --g900: #083d22; --g950: #052a18;
 
-  /* محايدات بمسحة خضراء خافتة */
   --n0: #ffffff; --n50: #f6f9f7; --n100: #eef2ef; --n200: #e0e7e2;
   --n300: #c8d3cc; --n400: #97a69d; --n500: #64746a; --n600: #4d5c53;
   --n700: #39463f; --n800: #25302a; --n900: #161f1a; --n950: #0e1512;
 
-  /* أدوار الألوان */
   --bg: var(--n50);
   --surface: var(--n0);
   --surface-2: var(--n100);
@@ -88,18 +70,15 @@
   --grid-line: rgba(8, 61, 34, 0.05);
   --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' fill='%234d5c53'%3E%3Cpath d='M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z'/%3E%3C/svg%3E");
 
-  /* ظلال طبقية — قريبة ثم بعيدة ناعمة */
   --shadow-1: 0 1px 2px rgba(8, 40, 24, 0.05);
   --shadow-2: 0 2px 6px rgba(8, 40, 24, 0.05), 0 16px 40px -12px rgba(8, 61, 34, 0.16);
   --shadow-3: 0 4px 12px rgba(8, 40, 24, 0.07), 0 32px 80px -20px rgba(8, 61, 34, 0.28);
   --glow-accent: 0 10px 30px -12px rgba(13, 122, 63, 0.45);
 
-  /* أنصاف الأقطار والمسافات */
   --radius-sm: 12px; --radius: 16px; --radius-lg: 20px;
   --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem; --space-4: 1rem;
   --space-5: 1.5rem; --space-6: 2rem; --space-7: 3rem; --space-8: 4rem;
 
-  /* الطباعة */
   --font-body: 'Tajawal', 'Segoe UI', Tahoma, Arial, sans-serif;
   --font-display: 'Reem Kufi', 'Tajawal', 'Segoe UI', Tahoma, Arial, sans-serif;
   --fs-xs: 0.875rem;
@@ -110,7 +89,6 @@
   --fs-xl: 1.875rem;
   --fs-2xl: 2.375rem;
 
-  /* الحركة */
   --ease: cubic-bezier(0.22, 0.7, 0.35, 1);
   --t-fast: 150ms;
   --t-med: 220ms;
@@ -152,7 +130,6 @@
   --glow-accent: 0 10px 30px -12px rgba(18, 160, 85, 0.5);
 }
 
-/* ===== الأساس ===== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html { height: 100%; }
@@ -204,7 +181,6 @@ h1, h2, h3 { line-height: 1.45; }
 .muted { color: var(--text-3); font-weight: 400; }
 .grow { flex: 1; min-width: 0; }
 
-/* ===== خيط النهر — توقيع «الرافدين» الوحيد، همسة لا شريط ===== */
 .river-line {
   height: 3px; width: 100%;
   background: linear-gradient(90deg,
@@ -225,7 +201,6 @@ h1, h2, h3 { line-height: 1.45; }
   to   { background-position: 100% 0; }
 }
 
-/* ===== خلفية الصفحات العامة — وهج أخضر ناعم وشبكة دقيقة ===== */
 .page-aurora { position: relative; }
 .page-aurora::before {
   content: ''; position: fixed; inset: 0; z-index: -2; pointer-events: none;
@@ -244,7 +219,6 @@ h1, h2, h3 { line-height: 1.45; }
           mask-image: radial-gradient(70% 62% at 50% 42%, #000 30%, transparent 100%);
 }
 
-/* ===== الحركة العامة ===== */
 @keyframes rise {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: none; }
@@ -256,15 +230,6 @@ h1, h2, h3 { line-height: 1.45; }
 .delay-1 { animation-delay: 60ms; }
 .delay-2 { animation-delay: 120ms; }
 
-/* ===== حاويات الأيقونات (data-icon) — إصلاح المحاذاة الرأسية =====
-   السبب: injectIcons() يضع innerHTML داخل <span data-icon> وهو صندوق inline؛
-   الـ svg المُحقن نفسه inline فيجلس على خط الأساس (baseline) فيترك الصندوق
-   مساحة تحته لحروف النزول (descenders) فيبدو مرتفعاً عن نص الزر المجاور له.
-   الإصلاح: تحويل الحاوية إلى inline-flex بمحاذاة مركزية، وجعل الـ svg نفسه
-   block كي لا يخضع لحساب سطر النص إطلاقاً. يطبَّق هذا تلقائياً على كل مكان
-   يستخدم النمط نفسه: .icon-btn / .nav-btn / .status-line / .empty-state /
-   .chip وغيرها — جميعها تمرّ عبر نفس span[data-icon] فيُصلَحها إصلاح واحد
-   دون الحاجة لأي تعديل خاص بكل مكوّن على حدة. */
 [data-icon] {
   display: inline-flex;
   align-items: center;
@@ -272,7 +237,6 @@ h1, h2, h3 { line-height: 1.45; }
 }
 [data-icon] > svg { display: block; }
 
-/* ===== الأزرار ===== */
 .btn {
   display: inline-flex; align-items: center; justify-content: center;
   gap: var(--space-2);
@@ -322,7 +286,6 @@ h1, h2, h3 { line-height: 1.45; }
 .icon-btn.danger:hover { color: var(--danger); background: var(--danger-bg); }
 .icon-btn svg { width: 20px; height: 20px; }
 
-/* ===== الحقول ===== */
 .input {
   width: 100%; min-height: 44px;
   padding: 0.45rem 0.9rem;
@@ -351,7 +314,6 @@ select.input {
 .field-hint { font-size: var(--fs-xs); color: var(--text-3); }
 .field-error { font-size: var(--fs-xs); font-weight: 700; color: var(--danger); }
 
-/* ===== شعار دائري موحّد في كل الصفحات ===== */
 .logo-ring {
   border-radius: 50%;
   background: var(--accent-soft);
@@ -365,7 +327,6 @@ select.input {
   border-radius: 50%; object-fit: cover;
 }
 
-/* ===== البطاقات ===== */
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -380,7 +341,6 @@ select.input {
 }
 .view-sub { color: var(--text-2); font-size: var(--fs-sm); margin-bottom: var(--space-4); }
 
-/* ===== سطر الحالة الدائم ===== */
 .status-line {
   display: flex; align-items: center; gap: var(--space-3);
   background: var(--accent-soft);
@@ -395,7 +355,6 @@ select.input {
 }
 .status-line svg { width: 22px; height: 22px; flex-shrink: 0; }
 
-/* ===== الملاحظات المضمّنة ===== */
 .inline-note {
   display: flex; align-items: flex-start; gap: var(--space-2);
   border-radius: var(--radius-sm);
@@ -410,7 +369,6 @@ select.input {
 .inline-note.info { background: var(--surface-2); color: var(--text-2); border: 1px solid var(--border); }
 .inline-note b, .inline-note strong { font-weight: 800; }
 
-/* رسالة الخطأ في صفحات الدخول (تُظهرها JS عبر [hidden]) */
 .error { color: var(--danger); font-weight: 700; font-size: var(--fs-sm); }
 p.error {
   background: var(--danger-bg); border: 1px solid var(--danger-border);
@@ -419,7 +377,6 @@ p.error {
   animation: rise var(--t-med) var(--ease) both;
 }
 
-/* ===== شارات ===== */
 .badge {
   display: inline-flex; align-items: center; gap: 0.3em;
   padding: 0.1rem 0.65rem; border-radius: 999px;
@@ -431,7 +388,6 @@ p.error {
 [data-theme="dark"] .badge-pass { color: var(--accent-text); }
 .badge-fail { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger-border); padding: 0.15rem 0.8rem; border-radius: 999px; font-weight: 800; white-space: nowrap; }
 
-/* الرقم الامتحاني — دائماً باتجاه يسار-يمين وبأرقام متساوية العرض */
 .exam-chip {
   direction: ltr; unicode-bidi: isolate;
   display: inline-block;
@@ -442,7 +398,6 @@ p.error {
   font-size: var(--fs-xs); font-weight: 700; color: var(--text-2);
 }
 
-/* ===== الصفوف والقوائم ===== */
 .list-stack { display: flex; flex-direction: column; }
 .list-row {
   display: flex; align-items: center; gap: var(--space-2);
@@ -475,7 +430,6 @@ p.error {
 .inline-edit { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; flex: 1; }
 .inline-edit input { flex: 1 1 150px; }
 
-/* ===== شريط التأكيد المضمّن (بديل نوافذ المتصفح) ===== */
 .confirm-strip {
   display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;
   background: var(--danger-bg); border: 1px solid var(--danger-border);
@@ -489,7 +443,6 @@ p.error {
 .confirm-strip.neutral { background: var(--surface-2); border-color: var(--border-strong); }
 .confirm-strip.neutral .confirm-msg { color: var(--text); }
 
-/* ===== أشرطة الأدوات ===== */
 .toolbar { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; margin-bottom: var(--space-4); }
 .toolbar .input { flex: 1 1 200px; width: auto; min-width: 170px; }
 .add-row { display: flex; gap: var(--space-2); align-items: flex-start; flex-wrap: wrap; }
@@ -497,11 +450,6 @@ p.error {
 
 .search-box { position: relative; flex: 1 1 240px; align-self: center; }
 
-/* الأيقونة تُحقن داخل غلاف <span data-icon>، والغلاف — لا الـ svg — هو ما
-   يجب إخراجه من التدفّق. حين كان الـ svg وحده مطلقاً بقي الغلاف سطراً في
-   التدفّق يضيف ارتفاع سطره (٣٠٫٦ بكسل) إلى الصندوق، فصار ارتفاعه ٧٤٫٦ بدل
-   ٤٤، وأصبح top:50% منتصفَ ذلك الارتفاع الزائد فارتفعت الأيقونة ١٥ بكسل
-   فوق منتصف حقل البحث. قيس قبل الإصلاح وبعده. */
 .search-box > [data-icon] {
   position: absolute; inset-inline-start: 0.8rem; top: 50%; transform: translateY(-50%);
   display: inline-flex; align-items: center;
@@ -509,13 +457,10 @@ p.error {
 }
 .search-box > [data-icon] svg { width: 18px; height: 18px; display: block; }
 
-/* القاعدة العامة لكل غلاف أيقونة: صندوق مرن متمركز رأسياً، والـ svg كتلة
-   داخله — كي لا يجلس على خطّ الأساس فيبدو مرتفعاً عن النص المجاور. */
 [data-icon] { display: inline-flex; align-items: center; }
 [data-icon] > svg { display: block; }
 .search-box .input { padding-inline-start: 2.5rem; width: 100%; }
 
-/* ===== الحالات الفارغة ===== */
 .empty-state {
   display: flex; flex-direction: column; align-items: center; gap: var(--space-2);
   text-align: center; color: var(--text-2);
@@ -525,7 +470,6 @@ p.error {
 .empty-state p { font-weight: 700; font-size: var(--fs-sm); }
 .empty-state .empty-sub { font-weight: 400; font-size: var(--fs-xs); color: var(--text-3); }
 
-/* ===== هيكل التحميل ===== */
 .skl {
   position: relative; overflow: hidden;
   background: var(--surface-2); border-radius: var(--radius-sm);
@@ -542,9 +486,6 @@ p.error {
 }
 @keyframes shimmer { to { transform: translateX(100%); } }
 
-/* ==========================================================================
-   مركز الإشعارات — لافتات تنزل من أعلى المنتصف بأسلوب iOS + جرس بسجل
-   ========================================================================== */
 #notifStack {
   position: fixed; top: max(14px, env(safe-area-inset-top)); inset-inline: 0;
   margin-inline: auto;
@@ -584,7 +525,6 @@ p.error {
 .notif-title { font-size: var(--fs-xs); font-weight: 800; color: var(--text); line-height: 1.4; }
 .notif-msg { font-size: var(--fs-xs); font-weight: 500; color: var(--text-2); line-height: 1.5; overflow-wrap: anywhere; }
 
-/* جرس الترويسة */
 .bell-wrap { position: relative; }
 .notif-badge {
   position: absolute; top: 2px; inset-inline-end: 2px;
@@ -625,7 +565,6 @@ p.error {
 .notif-row-time { font-size: 0.78rem; color: var(--text-3); font-weight: 500; white-space: nowrap; margin-top: 2px; }
 .notif-empty { padding: var(--space-6) var(--space-4); text-align: center; color: var(--text-3); font-size: var(--fs-xs); font-weight: 600; }
 
-/* ===== المؤشر المرئي «التالي» — عنصر واحد فقط في أي لحظة ===== */
 .next-target {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
@@ -639,7 +578,6 @@ p.error {
   50% { box-shadow: 0 0 0 8px transparent; }
 }
 
-/* ===== زر تبديل الوضع (الصفحات العامة) ===== */
 .theme-toggle {
   position: fixed; top: var(--space-4); inset-inline-end: var(--space-4); z-index: 90;
   width: 46px; height: 46px; border-radius: 50%;
@@ -653,9 +591,6 @@ p.error {
 .theme-toggle:hover { color: var(--accent-text); background: var(--accent-soft); box-shadow: var(--shadow-2); }
 .theme-toggle svg { width: 21px; height: 21px; }
 
-/* ==========================================================================
-   الصفحات العامة: الاستعلام + دخول الإدارة — بطل SaaS هادئ ببطاقة زجاجية
-   ========================================================================== */
 .page-center {
   min-height: calc(100vh - 96px);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -697,7 +632,6 @@ p.error {
 .auth-links a:hover { text-decoration: underline; text-underline-offset: 4px; }
 .auth-links svg { width: 18px; height: 18px; }
 
-/* حقل الرقم الامتحاني الكبير */
 .exam-input {
   direction: ltr; text-align: center;
   font-size: 1.7rem; font-weight: 700;
@@ -716,9 +650,6 @@ p.error {
 .page-foot a { color: var(--accent-text); font-weight: 700; text-decoration: none; }
 .page-foot a:hover { text-decoration: underline; text-underline-offset: 4px; }
 
-/* ==========================================================================
-   صفحة نتيجة الطالب — وثيقة نظيفة يعلوها خيط النهر
-   ========================================================================== */
 .result-wrap { max-width: 1040px; margin: 0 auto; padding: var(--space-5) var(--space-4) var(--space-7); position: relative; z-index: 1; }
 
 .result-card {
@@ -753,14 +684,6 @@ p.error {
   padding: var(--space-4) var(--space-5) var(--space-5);
 }
 
-/* ==========================================================================
-   بطاقات المواد الرأسية (v5) — تحلّ محلّ جدول الدرجات الأفقي، الشاشة فقط.
-   نسخة الطباعة الأفقية القديمة محفوظة عمداً — أنظر قسم «الطباعة» أسفل
-   الملف وتعليق القرار هناك. القاعدة الجوهرية لم تتغيّر: حقل يظهر فقط إذا
-   وُجدت له قيمة غير فارغة في مادة واحدة على الأقل؛ الدرجة النهائية تظهر
-   دائماً. البطاقة تعرض الحقول نفسها عمودياً (تسمية/قيمة) بدل عمود بجانب
-   عمود، وتُشتق من المصدر نفسه الذي يبني جدول الطباعة في student.js.
-   ========================================================================== */
 .subject-cards {
   display: grid;
   grid-template-columns: 1fr;
@@ -797,9 +720,6 @@ p.error {
 .subject-row.subject-row-final dt { font-weight: 800; color: var(--text); font-size: var(--fs-base); }
 .subject-row.subject-row-final dd { font-size: var(--fs-xl); color: var(--accent-text); font-weight: 800; }
 
-/* ===== بوّابة التشويق — طمس ثم كشف بضغطة واحدة (R3) =====
-   الطمس مسرحي لا أمني: القيم موجودة في الـ DOM دوماً، فقط filter:blur.
-   لا يظهر هذا القسم إطلاقاً في الطباعة — أنظر @media print. */
 .grades-section.is-blurred .blur-target {
   filter: blur(10px);
   user-select: none;
@@ -819,7 +739,6 @@ p.error {
 .reveal-gate-hint { font-size: var(--fs-sm); color: var(--text-2); font-weight: 500; margin-top: 3px; }
 .reveal-gate .btn { flex-shrink: 0; }
 
-/* ===== لافتة النجاح الهادئة — نجاح دون تفوق ===== */
 .success-banner {
   display: flex; align-items: center; gap: var(--space-3);
   background: var(--accent-soft); border: 1px solid var(--accent-border);
@@ -839,10 +758,6 @@ p.error {
 .success-banner-sub { font-size: var(--fs-sm); color: var(--text-2); font-weight: 500; margin-top: 2px; }
 .success-banner-sub strong { color: var(--accent-text); font-weight: 800; font-variant-numeric: tabular-nums; }
 
-/* ===== احتفال التفوق — تراكب كامل، مقيّد بقاعدة الكرامة (R4) =====
-   لا يظهر هذا التراكب إطلاقاً إلا عند نجاح تام + معدل متميز. الرسوب أو
-   النتيجة غير المكتملة لا يصلان إلى هذا الكود أساساً — أنظر showOutcome()
-   في student.js، وهي القاعدة الوحيدة غير القابلة للتفاوض في هذا الملف. */
 .celebration-overlay {
   position: fixed; inset: 0; z-index: 300;
   display: flex; align-items: center; justify-content: center;
@@ -907,7 +822,6 @@ p.error {
   .celebration-flourish { display: none; }
 }
 
-/* ===== الجداول ===== */
 .table-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
 table.grades { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
@@ -931,7 +845,6 @@ table.grades tbody tr:last-child td { border-bottom: none; }
 table.grades td.subject-name { text-align: start; font-weight: 700; white-space: nowrap; padding-inline-start: var(--space-3); }
 table.grades .grade-cell { font-weight: 700; font-size: var(--fs-base); }
 
-/* شبكة إدخال الدرجات (الإدارة) */
 table.grades td .input {
   width: 78px; min-width: 66px; margin-inline: auto;
   text-align: center; direction: ltr;
@@ -961,7 +874,6 @@ table.grades td .input {
 .fo-row .fo-grade-wrap small { color: var(--text-3); font-size: 0.78rem; }
 .fo-row input.fo-grade { width: 100%; text-align: center; direction: ltr; font-weight: 700; font-variant-numeric: tabular-nums; }
 
-/* شريط حفظ الدرجات الثابت أسفل الشبكة */
 .grades-actions {
   position: sticky; bottom: 0; z-index: 5;
   display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;
@@ -977,7 +889,6 @@ table.grades td .input {
 .dirty-flag svg { width: 17px; height: 17px; }
 .grades-actions.is-dirty .dirty-flag { display: inline-flex; }
 
-/* شريط «تغييرات غير محفوظة» عند محاولة المغادرة */
 .unsaved-strip {
   display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;
   background: var(--danger-bg); border: 1px solid var(--danger-border);
@@ -989,9 +900,6 @@ table.grades td .input {
 }
 .unsaved-strip .confirm-msg { flex: 1 1 260px; font-weight: 700; font-size: var(--fs-sm); color: var(--danger); }
 
-/* ==========================================================================
-   هيكل لوحة الإدارة — ترويسة هادئة يقفلها خيط النهر
-   ========================================================================== */
 .page-admin { display: flex; flex-direction: column; min-height: 100vh; }
 
 .admin-band {
@@ -1055,7 +963,6 @@ table.grades td .input {
   max-width: 1000px;
 }
 
-/* ===== حالة تعذّر الاتصال عند فتح اللوحة ===== */
 .boot-error {
   max-width: 520px; margin: var(--space-8) auto;
   text-align: center;
@@ -1064,9 +971,6 @@ table.grades td .input {
 .boot-error h2 { font-size: var(--fs-md); margin-bottom: var(--space-2); }
 .boot-error p { color: var(--text-2); font-size: var(--fs-sm); margin-bottom: var(--space-4); }
 
-/* ==========================================================================
-   شاشة الإضافة السريعة — مسار خطوات عمودي
-   ========================================================================== */
 .quick-flow { max-width: 780px; }
 
 .q-step {
@@ -1144,9 +1048,6 @@ table.grades td .input {
 .finale-card .finale-text strong { display: block; font-size: var(--fs-sm); font-weight: 800; color: var(--accent-text); margin-bottom: 2px; }
 .finale-card .finale-text span { font-size: var(--fs-xs); color: var(--text-2); }
 
-/* ==========================================================================
-   شاشة الأقسام والمراحل
-   ========================================================================== */
 .crumbs {
   display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-1);
   margin-bottom: var(--space-4); min-height: 44px;
@@ -1175,9 +1076,6 @@ table.grades td .input {
 .group-title svg { width: 19px; height: 19px; color: var(--accent-text); }
 .group-title .muted { font-weight: 500; }
 
-/* ==========================================================================
-   استجابة الشاشات — المكونات نفسها بإيقاع واحد على كل المقاسات
-   ========================================================================== */
 @media (max-width: 900px) {
   .band-inner { min-height: 64px; padding: var(--space-2) var(--space-4); }
   .band-logo-ring { width: 44px; height: 44px; }
@@ -1217,37 +1115,17 @@ table.grades td .input {
   .brand-title { font-size: var(--fs-lg); }
 }
 
-/* ==========================================================================
-   تقليل الحركة — تجميد كل شيء مع بقاء التصميم سليماً
-   ========================================================================== */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation: none !important;
     transition: none !important;
     scroll-behavior: auto !important;
   }
-  /* يبقى المؤشر «التالي» بإطاره الثابت، ويبقى خيط النهر ساكناً */
+
 }
 
-/* الجدول الأفقي القديم لنتيجة الطالب — يُبنى دوماً في الـ DOM (من نفس
-   مصدر الحقول الذي يبني بطاقات الشاشة) لكنه مخفي على الشاشة بالكامل؛
-   يظهر فقط عند الطباعة. أنظر قرار الطباعة في @media print أسفل الملف. */
 .print-only { display: none; }
 
-/* ==========================================================================
-   الطباعة — نتيجة الطالب على ورقة A4، الجدول الأفقي القديم بعد إصلاح عطل
-   القطع على حافة الصفحة
-   ==========================================================================
-   قرار صريح من المالك بعد عطل حقيقي: طبع نتيجة كاملة وخرجت الدرجة النهائية
-   وعمود النتيجة عن حافة الورقة تماماً. البطاقات الرأسية (v5) للشاشة فقط؛
-   الطباعة تعيد الجدول الأفقي الذي كان يعجب المالك أصلاً، لكن بصفوف وخط
-   أصغر ليتسع لكل الأعمدة الثمانية الممكنة (المادة + 6 حقول + النتيجة)
-   على عرض صفحة A4 واحدة دون أي قطع.
-   الضمان الرياضي لا التقديري: table-layout:fixed مع أعمدة colgroup بعرض
-   مئوي محسوب في student.js (buildPrintTable) يجعل من المستحيل أن يتجاوز
-   الجدول عرض حاوية الصفحة أياً كان عدد الأعمدة الفعلي (3 عند final_only
-   حتى 8 في الحالة الكاملة) — لا اعتماد على تقليص خط أو حشو فقط كما كان
-   سابقاً. تم التحقق فعلياً بمحاكاة طباعة لحالة 8 أعمدة و3 أعمدة معاً. */
 @media print {
   @page { size: A4 portrait; margin: 10mm 8mm; }
 
@@ -1293,12 +1171,6 @@ table.grades td .input {
   table.print-grades tbody tr { break-inside: avoid; page-break-inside: avoid; }
 }
 
-/* ==========================================================================
-   دخول متدرّج للبطاقات — يعيد استعمال حركة rise الموجودة أصلاً بدل إضافة
-   حركة جديدة. التدرّج بـ nth-child خالص: لا JavaScript، ولا سمة على كل عنصر.
-   بعد العنصر العاشر تتساوى المهلة (فرق غير محسوس) فلا تطول القائمة بلا داعٍ.
-   @media (prefers-reduced-motion: reduce) أعلاه يلغي هذا كله تلقائياً.
-   ========================================================================== */
 .subject-cards > .subject-card { animation: rise var(--t-med) var(--ease) both; }
 .subject-cards > .subject-card:nth-child(1) { animation-delay: 0ms; }
 .subject-cards > .subject-card:nth-child(2) { animation-delay: 50ms; }
@@ -1309,7 +1181,6 @@ table.grades td .input {
 .subject-cards > .subject-card:nth-child(7) { animation-delay: 300ms; }
 .subject-cards > .subject-card:nth-child(n+8) { animation-delay: 350ms; }
 
-/* ارتفاع خفيف عند المرور — يوضّح أن البطاقة وحدة قائمة بذاتها. */
 .subject-card {
   transition: transform var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
 }
@@ -1318,8 +1189,6 @@ table.grades td .input {
   box-shadow: var(--shadow-md, 0 8px 24px rgba(0, 0, 0, 0.08));
 }
 
-/* الدرجة النهائية تلمع لمعة واحدة عند كشف النتيجة، فتقع عين الطالب عليها
-   أولاً. لمعة واحدة فقط لا حلقة مكرّرة — التكرار يتحوّل إلى إزعاج. */
 @keyframes finalGlow {
   0%   { background-size: 0% 100%; }
   60%  { background-size: 100% 100%; }
@@ -1334,28 +1203,20 @@ table.grades td .input {
   animation-delay: 420ms;
 }
 
-/* ===== تخطّي الشعب ===== */
 .skip-section {
   margin-top: var(--space-3);
   padding-top: var(--space-3);
   border-top: 1px dashed var(--border);
 }
 .skip-section .q-hint { margin: var(--space-1) 0 0; }
-/* السهم يشير لجهة القراءة في واجهة من اليمين لليسار. */
+
 .skip-section .btn svg { transform: scaleX(-1); }
 
-/* ==========================================================================
-   حركات إضافية — كلها CSS خالص، وكلها تُلغى تلقائياً تحت
-   prefers-reduced-motion بحكم القاعدة الشاملة أعلاه.
-   ========================================================================== */
-
-/* رقاقات الهوية في وثيقة النتيجة تدخل متدرّجة مثل البطاقات. */
 .meta-chips > .chip { animation: rise var(--t-med) var(--ease) both; }
 .meta-chips > .chip:nth-child(1) { animation-delay: 40ms; }
 .meta-chips > .chip:nth-child(2) { animation-delay: 90ms; }
 .meta-chips > .chip:nth-child(3) { animation-delay: 140ms; }
 
-/* صفوف القوائم في لوحة الإدارة تدخل متدرّجة أيضاً. */
 .list-row { animation: rise var(--t-fast) var(--ease) both; }
 .list-row:nth-child(1) { animation-delay: 0ms; }
 .list-row:nth-child(2) { animation-delay: 35ms; }
@@ -1364,36 +1225,22 @@ table.grades td .input {
 .list-row:nth-child(5) { animation-delay: 140ms; }
 .list-row:nth-child(n+6) { animation-delay: 170ms; }
 
-/* الأزرار: ضغطة محسوسة، وأيقونتها تتقدّم قليلاً عند المرور. */
 .btn svg { transition: transform var(--t-fast) var(--ease); }
 .btn:hover:not(:disabled) svg { transform: translateX(-2px); }
 .btn:active:not(:disabled) { transform: translateY(1px) scale(0.99); }
-/* أزرار الإضافة: علامة الزائد تدور ربع دورة عند المرور — إشارة صغيرة
-   إلى أن الضغط يفتح شيئاً جديداً. */
+
 .btn[data-icon-spin]:hover:not(:disabled) svg { transform: rotate(90deg); }
 
-/* أزرار التنقّل الجانبية: مؤشّر الحالة النشطة ينزلق بدل أن يقفز. */
 .nav-btn { transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease); }
 .nav-btn svg { transition: transform var(--t-fast) var(--ease); }
 .nav-btn:hover svg { transform: scale(1.08); }
 
-/* صفوف جدول الدرجات: إبراز الصف الذي يعمل عليه المدرّس الآن. */
 .grades tbody tr { transition: background var(--t-fast) var(--ease); }
 .grades tbody tr:focus-within { background: var(--accent-soft); }
 
-/* بطاقة الخطوة النشطة في الإضافة السريعة تتنفّس بهدوء عند تفعيلها. */
 .q-step[data-state="active"] { animation: rise var(--t-med) var(--ease) both; }
 
-/* ==========================================================================
-   الطباعة — إعادة تصميم إلى وثيقة رسمية
-   ==========================================================================
-   الحالة السابقة كانت «صفحة ويب مطبوعة»: رقاقات بحوافّ دائرية، وشارات نجاح
-   داخل مربّعات، وترويسة ضعيفة، وثلثا الورقة فراغ بلا أي تذييل. الوثيقة التي
-   تُسلَّم لوليّ أمر أو تُحفَظ في أضبارة المدرسة تحتاج: ترويسة واضحة، كتلة
-   هوية مقروءة، جدول محايد، ومكان للتوقيع والختم. القواعد أدناه تأتي بعد
-   كتلة @media print الأصلية فتغلبها بحكم الترتيب. */
 @media print {
-  /* الرقاقات: نصّ صريح بلا إطار — الإطار الدائري أسلوب شاشة لا وثيقة. */
   .meta-chips { gap: 0; display: block; }
   .meta-chips .chip {
     border: none !important; background: none !important; padding: 0 !important;
@@ -1401,7 +1248,6 @@ table.grades td .input {
   }
   .meta-chips .chip-label { color: #444; font-weight: 400; }
 
-  /* شارة النتيجة: كلمة واضحة بلا مربّع. الرسوب يُكتب ولا يُلوَّن دراما. */
   table.print-grades .badge-pass,
   table.print-grades .badge-fail {
     border: none !important; background: none !important;
@@ -1409,7 +1255,6 @@ table.grades td .input {
   }
   table.print-grades .badge-fail { text-decoration: underline; }
 
-  /* الترويسة: اسم المدرسة هو العنوان الأول للوثيقة. */
   .result-head {
     border-bottom: 2pt solid #000; padding-bottom: 8pt; margin-bottom: 2pt;
     align-items: center;
@@ -1421,7 +1266,6 @@ table.grades td .input {
   .result-identity { border-bottom: 0.75pt solid #000; padding-bottom: 7pt; }
   .result-identity h1 { font-size: 15pt; font-weight: 800; }
 
-  /* الجدول: خطوط داخلية خفيفة وترويسة مميّزة برمادي فاتح يطبع نظيفاً. */
   table.print-grades { margin-top: 8pt; }
   table.print-grades th {
     background: #ececec !important; border-color: #000 !important;
@@ -1430,7 +1274,6 @@ table.grades td .input {
   table.print-grades td { border-color: #777 !important; }
   table.print-grades tbody tr:last-child td { border-bottom-color: #000 !important; }
 
-  /* التذييل: تاريخ الطباعة ومكان التوقيع والختم — يظهر عند الطباعة فقط. */
   .print-footer { display: block !important; margin-top: 16pt; }
   .print-sign {
     display: flex; justify-content: space-between; gap: 24pt; margin-top: 26pt;

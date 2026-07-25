@@ -1,15 +1,7 @@
-// Structure detection: which sheet holds the roster, where the header row is,
-// and which column carries the students' names.
-//
-// The detection NEVER guesses silently: every choice comes back with an Arabic
-// reason string and a confidence level, and a manual override always wins.
-
 const {
   cleanCell, normalizeForCompare, looksLikeName, bareToken,
 } = require('./normalize');
 
-// Header synonyms in comparison form with «ال» stripped per token.
-// Matched against the whole cell and cell tokens — token-exact, no substrings.
 const NAME_HEADER_EXACT = new Set([
   'اسم', 'اسم طالب', 'اسم ثلاثي', 'اسم طالب ثلاثي', 'اسم رباعي',
   'اسم طالب رباعي', 'اسم كامل', 'طالب', 'اسماء', 'اسماء طلبه',
@@ -22,8 +14,6 @@ const OTHER_HEADER = new Set([
   'مدرسه', 'جنس', 'دور',
 ]);
 
-// Comparison form of a header cell: normalized, punctuation-trimmed tokens,
-// «ال» stripped from each token («الاسم الثلاثي:» → «اسم ثلاثي»).
 function headerForm(cell) {
   return normalizeForCompare(cell)
     .split(' ')
@@ -36,7 +26,7 @@ function isNameHeader(cell) {
   const h = headerForm(cell);
   if (!h) return false;
   if (NAME_HEADER_EXACT.has(h)) return { exact: true };
-  // Fuzzy: one of the tokens IS the word «اسم»/«اسماء» (e.g. «اسم الطالب المسائي»).
+
   const tokens = h.split(' ');
   if (tokens.includes('اسم') || tokens.includes('اسماء')) return { exact: false };
   return false;
@@ -49,8 +39,6 @@ function isKnownHeader(cell) {
 
 const HEADER_SCAN_LIMIT = 40;
 
-// Scans the first rows for a header row containing a name-column label.
-// Returns { headerIdx, nameCol, nameHeader, exact } or null.
 function findHeaderRow(rows) {
   const limit = Math.min(rows.length, HEADER_SCAN_LIMIT);
   for (let i = 0; i < limit; i++) {
@@ -77,8 +65,6 @@ function findHeaderRow(rows) {
   return null;
 }
 
-// Fallback when no header exists: the column whose non-empty values are most
-// often multi-word Arabic names.
 function inferNameColumn(rows) {
   const width = rows.reduce((w, r) => Math.max(w, r.length), 0);
   let best = { col: 0, score: -1, filled: 0 };
@@ -99,8 +85,6 @@ function inferNameColumn(rows) {
   return best;
 }
 
-// How roster-like is a sheet? Counts rows whose cells contain at least one
-// plausible student name.
 function sheetScore(rows) {
   let score = 0;
   for (const row of rows) {
@@ -109,8 +93,6 @@ function sheetScore(rows) {
   return score;
 }
 
-// Picks the most roster-like sheet. Returns { index, score, reason } where the
-// Arabic reason is only present when there was an actual choice to explain.
 function chooseSheet(sheets) {
   if (sheets.length === 1) return { index: 0, score: sheetScore(sheets[0].rows), reason: null };
   let bestIdx = 0;
@@ -127,9 +109,6 @@ function chooseSheet(sheets) {
   };
 }
 
-// Full detection for one grid. `override` is a 0-based column index or undefined.
-// Returns { headerIdx (grid index or -1), headerRowNumber (file row or null),
-//           nameCol, nameHeader, confidence, reason }.
 function detectStructure(rows, firstRowNumber, override) {
   const header = findHeaderRow(rows);
   const headerIdx = header ? header.headerIdx : -1;

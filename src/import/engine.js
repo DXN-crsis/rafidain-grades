@@ -1,9 +1,3 @@
-// The import engine's front door: bytes in, preview report out.
-//
-// Nothing in this module writes to the database — preview is read-only by
-// contract. File kind is decided by CONTENT (magic bytes, zip members), not by
-// the filename extension, so a mislabeled file still parses or fails honestly.
-
 const { inspectZip, ImportError } = require('./zipGuard');
 const { parseWorkbook } = require('./parseSpreadsheet');
 const { parseDocx } = require('./parseDocx');
@@ -21,8 +15,6 @@ function startsWith(buffer, bytes) {
   return bytes.every((b, i) => buffer[i] === b);
 }
 
-// Content-first kind sniffing. The zip inspection doubles as the bomb guard,
-// so a zip bomb is rejected before we even know what it claims to be.
 function sniffKind(buffer, filename) {
   if (startsWith(buffer, [0x50, 0x4B, 0x03, 0x04])) {
     const names = inspectZip(buffer);
@@ -36,7 +28,6 @@ function sniffKind(buffer, filename) {
   throw new ImportError(ERR_UNSUPPORTED);
 }
 
-// Reflected back to the client — keep it boring: basename, no controls, capped.
 function sanitizeFilename(name) {
   return cleanCell(String(name || 'ملف').split(/[/\\]/).pop()).slice(0, 120) || 'ملف';
 }
@@ -56,15 +47,13 @@ function columnsReport(rows, headerIdx) {
   return columns;
 }
 
-// buffer + filename + target section -> the full preview report (minus token,
-// which is the route's concern).
 function buildPreview({ buffer, filename, db, sectionId, nameColumn }) {
   const kind = sniffKind(buffer, filename);
 
   let rows;
   let firstRowNumber = 1;
   let sheetName = null;
-  let sourceNote = null; // Arabic, prepended to the detection reason
+  let sourceNote = null;
 
   if (kind === 'docx') {
     const doc = parseDocx(buffer);

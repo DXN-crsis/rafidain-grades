@@ -1,16 +1,5 @@
-/* ==========================================================================
-   لوحة إدارة النتائج — v4
-   بنية الشيفرة: مساعدات عامة ثم شاشة لكل دالة render ثم الموجّه والتمهيد.
-   قواعد ثابتة:
-   - كل نص قادم من قاعدة البيانات يمر عبر escapeHtml قبل أي innerHTML.
-   - لا window.prompt ولا alert ولا confirm — كل التأكيدات عناصر مضمّنة.
-   - كل فشل شبكة يعرض جملة عربية واحدة موحدة (NET_ERR).
-   - مؤشر «التالي» (.next-target) على عنصر واحد فقط في أي لحظة.
-   ========================================================================== */
-
 const NET_ERR = 'تعذر الاتصال بالخادم. تأكد من تشغيل الخادم ثم حاول مرة أخرى.';
 
-/* ===== مساعدات عامة ===== */
 async function apiCall(method, url, body) {
   let res;
   try {
@@ -20,7 +9,6 @@ async function apiCall(method, url, body) {
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
-    // فشل على مستوى الشبكة — fetch يرمي خطأ إنكليزياً تقنياً؛ لا يظهر أبداً.
     throw new Error(NET_ERR);
   }
   if (res.status === 401) { location.href = '/admin-login.html'; throw new Error('انتهت الجلسة — يجري تحويلك لتسجيل الدخول'); }
@@ -29,9 +17,6 @@ async function apiCall(method, url, body) {
   return data;
 }
 
-/* ===== مركز الإشعارات =====
-   كل رسائل النجاح والفشل تمر من هنا: لافتة تنزل من أعلى المنتصف بأسلوب
-   iOS ثم تنسحب تلقائياً، ويُحفظ سجل الجلسة في قائمة الجرس أعلى الصفحة. */
 const notifCenter = { items: [], unread: 0, panelOpen: false };
 
 function notifStackEl() {
@@ -64,7 +49,6 @@ function notify(msg, type = 'ok') {
   renderNotifPanelList();
 }
 
-// اسم قديم تستدعيه كل الشاشات — يمرر إلى مركز الإشعارات.
 function showToast(msg, isError = false) {
   notify(msg, isError ? 'danger' : 'ok');
 }
@@ -134,14 +118,10 @@ function escapeHtml(s) {
   })[c]);
 }
 
-// أرقام عربية-هندية لنصوص الحالة والعدّ فقط. الأرقام الامتحانية تبقى
-// غربية دائماً — يجب أن تطابق ما يكتبه الطالب في صفحة الاستعلام حرفياً.
 function arDigits(n) {
   return String(n).replace(/[0-9]/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
 }
 
-// تمييز العدد العربي الصحيح: ٠ نص خاص، ١ مفرد، ٢ مثنى،
-// ٣-١٠ جمع، ١١ فأكثر مفرد منصوب.
 function countNoun(n, forms) {
   if (n === 0) return forms.zero;
   if (n === 1) return forms.one;
@@ -154,7 +134,6 @@ const countSubjects = n => countNoun(n, { zero: 'لا مواد', one: 'مادة 
 const countStages = n => countNoun(n, { zero: 'بلا مراحل', one: 'مرحلة واحدة', two: 'مرحلتان', few: 'مراحل', many: 'مرحلة' });
 const countResults = n => countNoun(n, { zero: 'لا نتائج', one: 'نتيجة واحدة', two: 'نتيجتان', few: 'نتائج', many: 'نتيجة' });
 
-// وقت نسبي عربي موجز لسجل الإشعارات.
 function relTime(ts) {
   const s = Math.floor((Date.now() - ts) / 1000);
   if (s < 45) return 'قبل لحظات';
@@ -166,7 +145,6 @@ function relTime(ts) {
   return 'قبل ' + countNoun(d, { zero: 'يوم', one: 'يوم', two: 'يومين', few: 'أيام', many: 'يوماً' });
 }
 
-// يعيد صياغة خطأ الخادم إلى «ما العمل الآن» بدل «ما الذي فشل».
 function friendlyError(msg) {
   if (/موجود مسبقاً|موجودة مسبقاً/.test(msg)) return `${msg} — جرّب اسماً آخر.`;
   return msg;
@@ -197,7 +175,6 @@ async function copyToClipboard(text) {
   }
 }
 
-// زر نسخ موحّد: ينسخ الرقم ويؤكد على الزر نفسه لحظة النجاح.
 function wireCopyButton(btn, value) {
   const original = btn.innerHTML;
   btn.addEventListener('click', async () => {
@@ -212,7 +189,6 @@ function wireCopyButton(btn, value) {
   });
 }
 
-// استبدال نافذة prompt: تعديل الاسم داخل الصف نفسه بحقل + حفظ/إلغاء.
 function startInlineRename(nameSpan, currentName, { onSave, onCancel }) {
   const wrap = el(`<span class="grow inline-edit">
     <input class="input" value="${escapeHtml(currentName)}" aria-label="الاسم الجديد">
@@ -237,7 +213,6 @@ function startInlineRename(nameSpan, currentName, { onSave, onCancel }) {
   });
 }
 
-// استبدال نافذة confirm: شريط تأكيد مضمّن يظهر تحت الصف المعني مباشرة.
 function confirmRow(row, { message, confirmLabel = 'تأكيد الحذف', neutral = false, onConfirm }) {
   const existing = row.parentElement && row.parentElement.querySelector(':scope > .confirm-strip');
   if (existing) existing.remove();
@@ -259,8 +234,6 @@ function confirmRow(row, { message, confirmLabel = 'تأكيد الحذف', neut
   };
 }
 
-// إبراز صف أُنشئ للتو — صنف على مؤقّت JS لا حركة CSS،
-// فيبقى ظاهراً حتى مع تفعيل «تقليل الحركة».
 function flashNew(rowEl) {
   if (!rowEl) return;
   rowEl.classList.add('just-added');
@@ -277,20 +250,11 @@ function emptyStateHtml(icon, title, sub) {
 
 const view = document.getElementById('view');
 
-/* ===== حالة مشتركة بين الشاشات ===== */
-/* اسم الشعبة الضمنية لمرحلة غير مقسّمة إلى شعب. الطالب يجب أن يرتبط بشعبة
-   تقنياً (منها يُعرَف صفّه ومواده)، لكن المدرّس غير ملزَم بالتفكير بذلك: عند
-   التخطّي تُنشأ شعبة واحدة بهذا الاسم وتُخفى تسميتها في وثيقة نتيجة الطالب. */
-// ponytail: implicit section row instead of nullable students.section_id, migrate
-// (add students.stage_id, allow NULL section_id) if a stage must have no section at all
 const NO_SECTION_NAME = 'بدون شعبة';
-// قيمة خيار «بدون شعبة» في القوائم المنسدلة قبل أن تُحسم إلى معرّف حقيقي.
+
 const NO_SECTION_VALUE = '__none__';
 const NO_SECTION_LABEL = 'بدون شعبة — المرحلة غير مقسّمة';
 
-/* يُرجع الشعبة الضمنية للمرحلة، وينشئها إن لم تكن موجودة. نقطة واحدة تمرّ بها
-   كل الشاشات (الطلبة، الإضافة السريعة، الاستيراد) كي لا يتكرّر المنطق ولا
-   تُنشأ شعبتان ضمنيتان لنفس المرحلة. */
 async function ensureNoSection(stageId) {
   const secs = await apiCall('GET', `/api/admin/sections?stage_id=${stageId}`);
   const found = secs.find(s => s.name === NO_SECTION_NAME);
@@ -300,16 +264,13 @@ async function ensureNoSection(stageId) {
 
 const state = { deptId: null, stageId: null, sectionId: null, subjectId: null };
 
-/* ==========================================================================
-   شاشة الإضافة السريعة — خمس خطوات على مسار واحد، دون مغادرة الشاشة
-   ========================================================================== */
 const quickUI = {
   expanded: { dept: false, stage: false, section: false, subjects: false },
   touched: { subjects: false, students: false },
   drafts: { dept: '', stage: '', section: '', subject: '', subjectMode: 'final_only', student: '' },
   errors: {},
-  lastConfirm: null,        // { step: 'dept'|'stage'|'section'|'subjects', html }
-  lastStudent: null,        // { name, exam_number }
+  lastConfirm: null,
+  lastStudent: null,
 };
 
 async function renderQuickView() {
@@ -334,7 +295,6 @@ async function renderQuickView() {
   const finaleHost = root.querySelector('#qFinale');
   const statusEl = root.querySelector('#qStatus');
 
-  /* ---- تحميل البيانات المتسلسل مع الاختيار التلقائي للعنصر الوحيد ---- */
   async function loadDepts() {
     qd.depts = null; paint();
     qd.depts = await apiCall('GET', '/api/admin/departments');
@@ -371,7 +331,6 @@ async function renderQuickView() {
     paint();
   }
 
-  /* ---- حساب حالة كل خطوة ---- */
   function stepStates() {
     const s = {};
     s.dept = state.deptId ? 'done' : 'active';
@@ -395,7 +354,6 @@ async function renderQuickView() {
     return `اكتمل الإعداد — ${countStudents(n)} في ${sec ? sec.name : 'الشعبة'}. اضغط «ابدأ إدخال الدرجات».`;
   }
 
-  /* ---- لبنات البناء ---- */
   function pillList(items, selectedId, onPick) {
     const group = el('<div class="pick-group" role="group"></div>');
     for (const it of items) {
@@ -452,13 +410,11 @@ async function renderQuickView() {
     return `<div class="inline-note ok" role="status">${iconHtml('checkCircle')}<span>${html}</span></div>`;
   }
 
-  /* ---- الرسم الكامل ---- */
   function paint() {
     const s = stepStates();
     statusEl.textContent = statusText(s);
     stepsHost.innerHTML = '';
 
-    /* الخطوة ١: القسم */
     const deptDone = s.dept === 'done';
     const deptCollapsed = deptDone && !quickUI.expanded.dept;
     const deptObj = qd.depts && state.deptId ? qd.depts.find(d => d.id === state.deptId) : null;
@@ -497,7 +453,6 @@ async function renderQuickView() {
     }
     stepsHost.appendChild(stepDept);
 
-    /* الخطوة ٢: المرحلة */
     const stageDone = s.stage === 'done';
     const stageCollapsed = stageDone && !quickUI.expanded.stage;
     const stageObj = qd.stages && state.stageId ? qd.stages.find(x => x.id === state.stageId) : null;
@@ -537,7 +492,6 @@ async function renderQuickView() {
     }
     stepsHost.appendChild(stepStage);
 
-    /* الخطوة ٣: الشعبة */
     const secDone = s.section === 'done';
     const secCollapsed = secDone && !quickUI.expanded.section;
     const secObj = qd.sections && state.sectionId ? qd.sections.find(x => x.id === state.sectionId) : null;
@@ -562,11 +516,6 @@ async function renderQuickView() {
           body.appendChild(el(`<p class="q-hint">لا توجد شعب في هذه المرحلة بعد — اكتب اسم الشعبة (مثل: شعبة أ) واضغط إضافة.</p>`));
         }
 
-        /* مدرسة لا تقسّم مرحلتها إلى شعب ليست ملزَمة باختراع شعبة: هذا الزر
-           يتخطّى الخطوة ويضع الطلبة مباشرة تحت المرحلة. تقنياً يستعمل شعبة
-           واحدة باسم NO_SECTION_NAME تُنشأ عند الحاجة فقط — لأن ارتباط الطالب
-           بمرحلته يمرّ عبر الشعبة، وقطع ذلك الارتباط يكسر إدخال الدرجات كلياً.
-           الشعبة تبقى ظاهرة في «الأقسام والمراحل» ويمكن حذفها كأي شعبة. */
         {
           const skipWrap = el('<div class="skip-section"></div>');
           const skipBtn = el(`<button type="button" class="btn btn-ghost btn-sm">${iconHtml('arrowRight')}المرحلة غير مقسّمة إلى شعب — تخطَّ هذه الخطوة</button>`);
@@ -601,7 +550,6 @@ async function renderQuickView() {
     }
     stepsHost.appendChild(stepSec);
 
-    /* الخطوة ٤: المواد */
     const subsDone = s.subjects === 'done';
     const subsCollapsed = subsDone && !quickUI.expanded.subjects && !quickUI.touched.subjects;
     let subsSummary = '';
@@ -676,7 +624,6 @@ async function renderQuickView() {
     }
     stepsHost.appendChild(stepSubs);
 
-    /* الخطوة ٥: الطلبة */
     const stDone = s.students === 'done';
     const stCollapsed = stDone && !quickUI.touched.students && !quickUI.expanded.students;
     let stSummary = '';
@@ -723,9 +670,6 @@ async function renderQuickView() {
         body.appendChild(addRow);
         if (quickUI.errors.student) body.appendChild(el(`<p class="field-error">${escapeHtml(quickUI.errors.student)}</p>`));
 
-        // مسار بديل للإدخال اليدوي: استيراد كشف كامل دفعة واحدة من ملف
-        // (public/js/import.js) — الشعبة المختارة هنا تُمرَّر مُهيّأة فتُختصر
-        // خطوة اختيار الشعبة في شاشة الاستيراد.
         const importBtn = el(`<button type="button" class="btn btn-ghost btn-sm" style="margin-top:var(--space-2)">${iconHtml('upload')}استيراد من ملف</button>`);
         importBtn.onclick = () => {
           const path = [deptObj, stageObj, secObj].filter(Boolean).map(x => x.name).join(' — ');
@@ -762,7 +706,6 @@ async function renderQuickView() {
     }
     stepsHost.appendChild(stepSt);
 
-    /* بطاقة الانطلاق: إدخال الدرجات بالسياق المحفوظ */
     finaleHost.innerHTML = '';
     if (state.sectionId && qd.subjects && qd.subjects.length > 0) {
       const n = qd.students ? qd.students.length : 0;
@@ -777,7 +720,6 @@ async function renderQuickView() {
       finaleHost.appendChild(finale);
     }
 
-    /* أزرار «تعديل» للخطوات المطوية */
     stepsHost.querySelectorAll('.q-step [data-edit]').forEach(btn => {
       btn.onclick = () => {
         const key = btn.closest('.q-step').dataset.step;
@@ -786,7 +728,6 @@ async function renderQuickView() {
       };
     });
 
-    /* المؤشر المرئي: عنصر واحد فقط */
     root.querySelectorAll('.next-target').forEach(x => x.classList.remove('next-target'));
     let target = null;
     if (s.dept === 'active') {
@@ -817,9 +758,6 @@ async function renderQuickView() {
   loadDepts().catch(e => { showToast(e.message, true); qd.depts = []; paint(); });
 }
 
-/* ==========================================================================
-   شاشة الأقسام والمراحل — تنقّل تدريجي: أقسام ثم مراحل ثم تفاصيل المرحلة
-   ========================================================================== */
 async function renderCatalogView() {
   view.innerHTML = '';
   const root = el(`<div class="rise">
@@ -830,7 +768,6 @@ async function renderCatalogView() {
   view.appendChild(root);
   const host = root.querySelector('#catCard');
 
-  // cat.level: 'depts' | 'stages' | 'stage'
   const cat = { level: 'depts', dept: null, stage: null };
   if (state.deptId) cat.level = 'depts';
 
@@ -1024,7 +961,6 @@ async function renderCatalogView() {
   async function paintStage() {
     const s = cat.stage;
 
-    /* --- الشعب --- */
     const secBlock = el(`<section class="group-block" style="margin-top:0">
       <h3 class="group-title">${iconHtml('users')}الشعب <span class="muted">— كل طالب ينتمي إلى شعبة واحدة</span></h3>
       <div class="add-row">
@@ -1091,7 +1027,6 @@ async function renderCatalogView() {
       injectIcons(secList);
     }
 
-    /* --- المواد --- */
     const subBlock = el(`<section class="group-block">
       <h3 class="group-title">${iconHtml('book')}المواد <span class="muted">— تُطبَّق على جميع طلبة المرحلة</span></h3>
       <div class="add-row">
@@ -1189,9 +1124,6 @@ async function renderCatalogView() {
   await paint();
 }
 
-/* ==========================================================================
-   شاشة الطلبة — تصفح بالشعبة أو بحث شامل بالاسم أو الرقم الامتحاني
-   ========================================================================== */
 async function renderStudentsView() {
   view.innerHTML = '';
   const root = el(`<div class="rise">
@@ -1232,7 +1164,6 @@ async function renderStudentsView() {
   listHost.innerHTML = emptyStateHtml('users', 'اختر الشعبة من القوائم أعلاه', 'أو اكتب اسم طالب أو رقمه الامتحاني في حقل البحث.');
   injectIcons(listHost);
 
-  /* --- فهرس البحث الشامل (يُبنى عند أول بحث ويُبطل بعد أي تعديل) --- */
   let index = null;
   async function ensureIndex() {
     if (index) return index;
@@ -1299,7 +1230,6 @@ async function renderStudentsView() {
     }
   }
 
-  /* --- وضع التصفح بالشعبة --- */
   async function paintSection(highlightId) {
     listHost.innerHTML = sklRows(3);
     const students = await apiCall('GET', `/api/admin/students?section_id=${secSel.value}`);
@@ -1321,7 +1251,6 @@ async function renderStudentsView() {
     injectIcons(listHost);
   }
 
-  /* --- وضع البحث الشامل --- */
   let searchSeq = 0;
   async function paintSearch(q) {
     const seq = ++searchSeq;
@@ -1360,7 +1289,6 @@ async function renderStudentsView() {
     }, 220);
   });
 
-  /* --- القوائم المتسلسلة --- */
   const depts = await apiCall('GET', '/api/admin/departments');
   for (const d of depts) deptSel.appendChild(el(`<option value="${d.id}">${escapeHtml(d.name)}</option>`));
 
@@ -1387,8 +1315,7 @@ async function renderStudentsView() {
     try {
       const secs = await apiCall('GET', `/api/admin/sections?stage_id=${stageSel.value}`);
       for (const s of secs) secSel.appendChild(el(`<option value="${s.id}">${escapeHtml(s.name)}</option>`));
-      // المرحلة غير المقسّمة إلى شعب: خيار صريح في نفس القائمة بدل إجبار
-      // المدرّس على اختراع شعبة. تُستعمل شعبة ضمنية واحدة تُنشأ عند أول حاجة.
+
       secSel.appendChild(el(`<option value="${NO_SECTION_VALUE}">${escapeHtml(NO_SECTION_LABEL)}</option>`));
       secSel.disabled = false;
     } catch (e) { showToast(e.message, true); }
@@ -1397,7 +1324,6 @@ async function renderStudentsView() {
   secSel.onchange = async () => {
     confirmHost.innerHTML = '';
     if (secSel.value === NO_SECTION_VALUE) {
-      // يُحسم الآن إلى معرّف شعبة حقيقي كي تعمل بقية الشاشة دون أي استثناء.
       secSel.disabled = true;
       try {
         const sec = await ensureNoSection(Number(stageSel.value));
@@ -1415,7 +1341,6 @@ async function renderStudentsView() {
     else repaintCurrent();
   };
 
-  /* --- إضافة طالب --- */
   const newStudentInput = root.querySelector('#newStudent');
   async function addStudent() {
     const name = newStudentInput.value.trim();
@@ -1441,9 +1366,6 @@ async function renderStudentsView() {
   newStudentInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addStudent(); } });
 }
 
-/* ==========================================================================
-   شاشة الدرجات
-   ========================================================================== */
 const GRADE_COLS = [
   ['first_term_avg', 'معدل النصف الأول'],
   ['midyear', 'درجة نصف السنة'],
@@ -1453,13 +1375,8 @@ const GRADE_COLS = [
   ['final_grade', 'الدرجة النهائية'],
 ];
 
-// الحقلان المحسوبان تلقائياً من بقية الحقول.
 const DERIVED = ['annual_effort', 'final_grade'];
 
-// هل القيمة المحفوظة لحقل مشتق تساوي ناتج معادلته؟ تُستعمل عند رسم الشبكة
-// للتمييز بين «محسوب تلقائياً» و«تجاوز يدوي وضعه مدرّس» — فالقيمة وحدها لا
-// تكفي للحكم. عند غياب وحدة الحساب نفترض «يدوي» تحفّظاً: الافتراض الآمن هو
-// عدم دهس رقم كتبه إنسان.
 function matchesCanonical(row, field) {
   const calc = window.RafidainGradeCalc;
   if (!calc) return false;
@@ -1469,10 +1386,8 @@ function matchesCanonical(row, field) {
   return computed !== null && Math.abs(Number(row[field]) - computed) <= calc.CONSISTENCY_EPSILON;
 }
 
-// true عندما تكون في شبكة الدرجات تعديلات غير محفوظة؛ يفحصها الموجّه
-// وزر الخروج وbeforeunload كي لا يضيع عمل المدرس دون تنبيه.
 let gradesDirty = false;
-// تسجلها شاشة الدرجات ليستدعيها الموجّه: تعرض شريط «تغييرات غير محفوظة».
+
 let gradesPrompt = null;
 
 async function renderGradesView() {
@@ -1512,7 +1427,6 @@ async function renderGradesView() {
     return opt ? opt.textContent : '';
   }
 
-  /* شريط «تغييرات غير محفوظة» — بديل نافذة confirm للموجّه والقوائم */
   function showUnsavedStrip(onProceed) {
     unsavedHost.innerHTML = '';
     const strip = el(`<div class="unsaved-strip" role="group" aria-label="تغييرات غير محفوظة">
@@ -1532,8 +1446,6 @@ async function renderGradesView() {
   }
   gradesPrompt = showUnsavedStrip;
 
-  // تغيير قائمة أثناء وجود تعديلات: تُرجَع القائمة لقيمتها ويُعرض الشريط،
-  // وعند «المتابعة دون حفظ» يُطبَّق الاختيار الذي حاوله المدرس.
   function guardedChange(select, apply) {
     select.onchange = () => {
       if (!gradesDirty) {
@@ -1680,7 +1592,6 @@ async function renderGradesView() {
     injectIcons(note);
   }
 
-  /* ---- السجل الكامل: ستة أعمدة بالسلوك المعهود (حساب تلقائي وتنقّل لوحة مفاتيح) ---- */
   function renderFullGrid(rows) {
     const cols = GRADE_COLS;
     const box = el(`<div>
@@ -1700,9 +1611,7 @@ async function renderGradesView() {
         ${cols.map(([k, label]) => {
           const derived = DERIVED.includes(k);
           const val = r[k] ?? '';
-          // حقل مشتق محفوظ سابقاً لا يُفترَض يدوياً لمجرد أنه يحمل قيمة: نقارنه
-          // بناتج معادلته؛ إن طابقه فهو محسوب تلقائياً ويبقى متزامناً، وإن خالفه
-          // فهو تجاوز يدوي حقيقي وضعه مدرّس ولا يجوز أن يدهسه الحساب التلقائي.
+
           const isManual = derived && val !== '' && !matchesCanonical(r, k);
           return `<td class="${derived ? 'is-derived' : ''}">
             <input class="input grade-in${derived ? ' derived-in' : ''}" data-field="${k}" inputmode="decimal"
@@ -1724,10 +1633,6 @@ async function renderGradesView() {
     gridWrap.appendChild(actions);
     const saveBtn = actions.querySelector('button');
 
-    /* ---- تنقّل لوحة المفاتيح، الحساب الحيّ، والحفظ التلقائي ----
-       التنقّل مصمَّم ليد واحدة لا تغادر لوحة المفاتيح: Enter يتقدّم حقلاً حقلاً
-       داخل الطالب، وعند آخر حقل يقفز إلى أول حقل عند الطالب التالي. الأسهم
-       تتحرك مكانياً (والاتجاه أفقياً معكوس لأن الجدول RTL). */
     const inputsOf = (tr) => [...tr.querySelectorAll('input[data-field]')];
     const rowsList = () => [...tbody.querySelectorAll('tr')];
 
@@ -1738,7 +1643,6 @@ async function renderGradesView() {
       inp.closest('tr').scrollIntoView({ block: 'nearest' });
     }
 
-    // الحقل التالي في ترتيب الإدخال: داخل الطالب أولاً، ثم أول حقل عند التالي.
     function advance(input, back) {
       const tr = input.closest('tr');
       const fields = inputsOf(tr);
@@ -1763,7 +1667,7 @@ async function renderGradesView() {
       input.addEventListener('input', () => {
         input.value = input.value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
         if (parseFloat(input.value) > 100) input.value = '100';
-        // الكتابة في حقل مشتق تعني تجاوزاً يدوياً مقصوداً — يُعلَن للخادم.
+
         if (DERIVED.includes(input.dataset.field)) input.dataset.manual = '1';
         autoCompute(input.closest('tr'));
         markRowDirty(input.closest('tr'));
@@ -1788,13 +1692,13 @@ async function renderGradesView() {
           focusInput(sameFieldInRow(input, e.key === 'ArrowDown' ? 1 : -1));
           return;
         }
-        // الجدول RTL: العمود التالي يقع بصرياً إلى اليسار.
+
         if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
           if (input.selectionStart !== input.selectionEnd || input.value.length > 0) {
             const atEdge = e.key === 'ArrowLeft'
               ? input.selectionStart === input.value.length
               : input.selectionStart === 0;
-            if (!atEdge) return; // اترك السهم يحرّك المؤشر داخل النص
+            if (!atEdge) return;
           }
           e.preventDefault();
           const fields = inputsOf(input.closest('tr'));
@@ -1804,7 +1708,6 @@ async function renderGradesView() {
       });
     });
 
-    // زر «إرجاع الحساب التلقائي» على الحقلين المشتقّين.
     box.querySelectorAll('[data-restore]').forEach(btn => {
       btn.onclick = () => {
         const tr = btn.closest('tr');
@@ -1816,10 +1719,6 @@ async function renderGradesView() {
       };
     });
 
-    /* الحساب الحيّ يستعمل وحدة الخادم نفسها (src/grades/calc.js تُقدَّم على
-       /js/grade-calc.js)، فلا يمكن أن يختلف رقم يراه المدرّس عن رقم يخزّنه
-       الخادم. إن تعذّر تحميلها لأي سبب نمتنع عن الحساب بدل التخمين بمعادلة
-       ثانية قد تنحرف — الخادم يبقى المرجع ويملأ الحقلين عند الحفظ. */
     function autoCompute(tr) {
       const calc = window.RafidainGradeCalc;
       if (!calc) return;
@@ -1849,8 +1748,6 @@ async function renderGradesView() {
       return entry;
     }
 
-    /* ---- الحفظ التلقائي: يبدأ بعد سكون قصير، ولا يفقد إدخالاً أبداً.
-       الفشل يُبقي القيم على الشاشة ويُعلن نفسه بصوت عالٍ بدل أن يبتلعه. ---- */
     const AUTOSAVE_MS = 1100;
     const timers = new Map();
     const dirtyRows = new Set();
@@ -1888,7 +1785,7 @@ async function renderGradesView() {
       try {
         await apiCall('PUT', '/api/admin/grades', { subject_id: Number(gSub.value), entries: [entry] });
         dirtyRows.delete(tr);
-        // القيم المحفوظة تصبح مرجع التراجع بـ Escape.
+
         tr.querySelectorAll('input[data-field]').forEach(i => { i.dataset.prev = i.value; });
         setRowState(tr, 'saved', 'محفوظ');
         setTimeout(() => { if (!dirtyRows.has(tr)) { const f = tr.querySelector('.row-state'); if (f) f.remove(); } }, 2200);
@@ -1896,7 +1793,6 @@ async function renderGradesView() {
         refreshCounts();
         updateStatus();
       } catch (e) {
-        // لا تُمسح القيم ولا يُزال وسم «غير محفوظ» — الإدخال يبقى ملك المدرّس.
         setRowState(tr, 'failed', 'تعذّر الحفظ');
         showToast(e.message, true);
       }
@@ -1919,7 +1815,6 @@ async function renderGradesView() {
     }
     refreshCounts();
 
-    // الحفظ اليدوي يبقى موجوداً لمن يفضّل زراً صريحاً — يحفظ كل ما لم يُحفظ.
     saveBtn.onclick = async () => {
       saveBtn.disabled = true;
       try {
@@ -1931,9 +1826,6 @@ async function renderGradesView() {
     };
   }
 
-  /* ---- «النهائية فقط»: صندوق واحد لكل طالب — المسار الأسهل.
-     مهم: كل مدخلة تحمل مفتاح final_grade فقط؛ الخادم لا يمس إلا الحقول
-     الموجودة في الحمولة (نمط has_<field>)، فلا تُصفَّر أعمدة التفاصيل. ---- */
   function renderFinalOnlyGrid(rows) {
     const wrap = el(`<div>
       <p class="grades-count" id="gCount" aria-live="polite"></p>
@@ -1954,8 +1846,6 @@ async function renderGradesView() {
     }
 
     for (const r of rows) {
-      // القيم المحملة غير الفارغة تحمل data-manual كي لا يكتب الحساب
-      // التلقائي فوقها إذا بُدّلت المادة لاحقاً إلى السجل الكامل.
       const isManual = r.final_grade !== null && r.final_grade !== undefined && r.final_grade !== '';
       const row = el(`<div class="fo-row" data-student="${r.student_id}">
         <span class="fo-name">${escapeHtml(r.student_name)} <span class="exam-chip">${escapeHtml(r.exam_number)}</span></span>
@@ -1993,7 +1883,6 @@ async function renderGradesView() {
     });
 
     wrap.querySelector('#gFoSave').onclick = async () => {
-      // final_grade فقط في كل مدخلة — أعمدة التفاصيل لا تُرسل إطلاقاً.
       const entries = [...list.querySelectorAll('.fo-row')].map(row => {
         const input = row.querySelector('input.fo-grade');
         return {
@@ -2015,8 +1904,6 @@ async function renderGradesView() {
     };
   }
 
-  /* ---- استكمال السياق من الإضافة السريعة أو زيارة سابقة —
-     لا يُعاد اختيار القسم والمرحلة والشعبة هنا أبداً ---- */
   if (state.deptId) {
     gDept.value = String(state.deptId);
     if (gDept.value === String(state.deptId)) {
@@ -2040,9 +1927,6 @@ async function renderGradesView() {
   }
 }
 
-/* ==========================================================================
-   شاشة كلمة المرور
-   ========================================================================== */
 async function renderPasswordView() {
   view.innerHTML = '';
   const root = el(`<div class="rise" style="max-width:480px">
@@ -2099,9 +1983,6 @@ async function renderPasswordView() {
     inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); save(); } }));
 }
 
-/* ==========================================================================
-   الموجّه والتمهيد
-   ========================================================================== */
 const routes = {
   quick: renderQuickView,
   catalog: renderCatalogView,
@@ -2153,7 +2034,6 @@ window.addEventListener('beforeunload', (e) => {
   e.returnValue = '';
 });
 
-/* جرس الإشعارات في الترويسة */
 (function wireNotifBell() {
   const bell = document.getElementById('notifBell');
   if (!bell) return;
@@ -2188,7 +2068,6 @@ function boot() {
   apiCall('GET', '/api/admin/me')
     .then(() => route('quick'))
     .catch((e) => {
-      // فشل 401 يعيد التوجيه من داخل apiCall؛ ما يصل هنا فشل شبكة.
       if (e && e.message === NET_ERR) renderBootError();
     });
 }

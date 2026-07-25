@@ -1,6 +1,5 @@
 const crypto = require('node:crypto');
 
-// Generates a unique, unguessable 8-digit exam number.
 function generateExamNumber(db) {
   const exists = db.prepare('SELECT 1 FROM students WHERE exam_number = ?');
   for (let attempts = 0; attempts < 50; attempts++) {
