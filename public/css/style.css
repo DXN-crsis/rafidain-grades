@@ -690,7 +690,7 @@ p.error {
   gap: var(--space-4);
 }
 @media (min-width: 640px) {
-  .subject-cards { grid-template-columns: repeat(2, 1fr); }
+  .subject-cards { grid-template-columns: 1fr; }
 }
 
 .subject-card {
@@ -1303,3 +1303,126 @@ table.grades td .input {
   border-radius: var(--radius-sm);
 }
 .page-foot a:hover { background: var(--surface-2); }
+
+.subject-cards { gap: var(--space-3); }
+
+.subject-card { overflow: hidden; }
+
+.subject-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 62px;
+  padding: var(--space-3) var(--space-4);
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease);
+}
+.subject-card-head.is-static { cursor: default; }
+.subject-card-head:hover:not(.is-static) { background: var(--surface-2); }
+.subject-card-head:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.subject-card-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 700;
+  font-size: var(--fs-md);
+}
+
+.subject-head-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+.subject-final-value {
+  font-size: 1.6rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-text);
+  line-height: 1;
+}
+
+.subject-chevron {
+  display: inline-flex;
+  color: var(--text-3);
+  transition: transform var(--t-med) var(--ease);
+}
+.subject-chevron svg { width: 20px; height: 20px; }
+.subject-card.is-open .subject-chevron { transform: rotate(180deg); }
+
+/* Height animates via grid rows, so the panel keeps its natural height and
+   needs no measured pixel value. */
+.subject-detail {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--t-med) var(--ease);
+}
+.subject-card.is-open .subject-detail { grid-template-rows: 1fr; }
+.subject-detail > .subject-grid {
+  overflow: hidden;
+  min-height: 0;
+  margin: 0;
+  padding: 0 var(--space-4);
+}
+.subject-card.is-open .subject-detail > .subject-grid {
+  padding-bottom: var(--space-4);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-3);
+}
+
+.subject-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px dashed var(--border);
+}
+.subject-row:last-child { border-bottom: none; }
+.subject-row dt { color: var(--text-2); font-size: var(--fs-sm); }
+.subject-row dd {
+  margin: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Each row fades in as the panel opens, staggered top to bottom. */
+.subject-card.is-open .subject-row {
+  animation: rise var(--t-fast) var(--ease) both;
+}
+.subject-card.is-open .subject-row:nth-child(1) { animation-delay: 60ms; }
+.subject-card.is-open .subject-row:nth-child(2) { animation-delay: 100ms; }
+.subject-card.is-open .subject-row:nth-child(3) { animation-delay: 140ms; }
+.subject-card.is-open .subject-row:nth-child(4) { animation-delay: 180ms; }
+.subject-card.is-open .subject-row:nth-child(5) { animation-delay: 220ms; }
+
+/* The school name must never be clipped; it wraps instead of truncating. */
+.band-name { white-space: normal; overflow: visible; text-overflow: clip; }
+@media (max-width: 900px) {
+  .band-name { font-size: var(--fs-sm); line-height: 1.25; }
+}
+
+/* On a narrow phone the grade, badge and chevron together claimed 135px of a
+   276px row, leaving the subject name 97px at a 20px font — so names like
+   "اللغة العربية" broke onto a second line. Everything on the right is made
+   compact so the name keeps one line. */
+@media (max-width: 560px) {
+  .subject-card-head { gap: var(--space-2); padding: var(--space-3); min-height: 56px; }
+  .subject-card-name { font-size: var(--fs-base); }
+  .subject-head-right { gap: var(--space-2); }
+  .subject-final-value { font-size: 1.25rem; }
+  .subject-head-right .badge-pass,
+  .subject-head-right .badge-fail { padding: 0.15rem 0.5rem; font-size: var(--fs-xs); }
+  .subject-chevron svg { width: 18px; height: 18px; }
+  .subject-detail > .subject-grid { padding-inline: var(--space-3); }
+
+  /* The floating theme button is fixed, so the document needs headroom or it
+     sits on top of the result card. */
+  .result-wrap { padding-top: 68px; }
+}

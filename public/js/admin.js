@@ -1596,8 +1596,6 @@ async function renderGradesView() {
     const cols = GRADE_COLS;
     const box = el(`<div>
       <p class="grades-count" id="gRemaining" aria-live="polite"></p>
-      <p class="grade-rule-hint">${iconHtml('info')}كل الدرجات من ٠ إلى ١٠٠. معدل السعي والدرجة النهائية يُحسبان تلقائياً — اكتب فوق أيّهما لتثبيت قيمة يدوية، وزر الإرجاع يعيده للحساب التلقائي.</p>
-      <p class="grade-rule-hint">${iconHtml('zap')}اضغط Enter للانتقال إلى الحقل التالي، وعند آخر حقل ينتقل تلقائياً إلى الطالب التالي. الحفظ يجري تلقائياً بعد لحظة من التوقف عن الكتابة.</p>
       <div class="table-wrap"><table class="grades">
         <thead><tr><th>الطالب</th>${cols.map(([, label]) => `<th>${escapeHtml(label)}</th>`).join('')}</tr></thead>
         <tbody></tbody>
