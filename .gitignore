@@ -9,3 +9,6 @@ backups/
 
 # أدلة عمل الوكلاء الداخلية — ليست جزءاً من المشروع
 .claude/
+
+# local-only test suite
+tests/
