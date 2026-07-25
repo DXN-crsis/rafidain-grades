@@ -104,22 +104,42 @@ if (resultRoot) {
         statusHtml = '<span class="badge-fail blur-target">راسب</span>';
       }
 
-      const rowsHtml = fields.map(([key, label]) => {
+      const detailFields = fields.filter(([key]) => key !== 'final_grade');
+      const hasDetail = detailFields.some(([key]) => sub[key] != null);
+
+      const rowsHtml = detailFields.map(([key, label]) => {
         const v = sub[key];
-        const rowCls = key === 'final_grade' ? ' subject-row-final' : '';
         const cellCls = 'grade-cell' + (v == null ? '' : ' blur-target');
-        return `<div class="subject-row${rowCls}">
+        return `<div class="subject-row">
           <dt>${escapeHtml(label)}</dt>
           <dd class="${cellCls}" data-value="${escapeHtml(v ?? '')}">${v == null ? '—' : escapeHtml(v)}</dd>
         </div>`;
       }).join('');
 
+      const finalHtml = sub.final_grade == null
+        ? '<span class="subject-final-value muted">—</span>'
+        : `<span class="subject-final-value grade-cell blur-target" data-value="${escapeHtml(sub.final_grade)}">${escapeHtml(sub.final_grade)}</span>`;
+
+      const panelId = 'subj-' + sub.id;
+
       card.innerHTML = `
-        <header class="subject-card-head">
-          <h2 class="subject-card-name">${escapeHtml(sub.name)}</h2>
-          ${statusHtml}
-        </header>
-        <dl class="subject-grid">${rowsHtml}</dl>`;
+        <${hasDetail ? 'button type="button" class="subject-card-head" aria-expanded="false" aria-controls="' + panelId + '"' : 'div class="subject-card-head is-static"'}>
+          <span class="subject-card-name">${escapeHtml(sub.name)}</span>
+          <span class="subject-head-right">
+            ${finalHtml}
+            ${statusHtml}
+            ${hasDetail ? '<span class="subject-chevron" aria-hidden="true"><span data-icon="chevronDown"></span></span>' : ''}
+          </span>
+        </${hasDetail ? 'button' : 'div'}>
+        ${hasDetail ? `<div class="subject-detail" id="${panelId}"><dl class="subject-grid">${rowsHtml}</dl></div>` : ''}`;
+
+      if (hasDetail) {
+        const head = card.querySelector('.subject-card-head');
+        head.addEventListener('click', () => {
+          const open = card.classList.toggle('is-open');
+          head.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+      }
 
       gradesList.appendChild(card);
     });
