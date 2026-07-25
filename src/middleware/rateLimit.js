@@ -1,7 +1,5 @@
-// Simple fixed-window in-memory rate limiter, counts FAILED attempts only
-// (call res.locals.rateLimitHit() from the route on failure).
 function createRateLimiter({ max = 10, windowMs = 60000 } = {}) {
-  const hits = new Map(); // ip -> { count, resetAt }
+  const hits = new Map();
   return function rateLimit(req, res, next) {
     const ip = req.ip || 'unknown';
     const now = Date.now();

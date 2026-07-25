@@ -1,11 +1,3 @@
-// Two-phase smart student import:
-//   POST /api/admin/import/preview  multipart(file, section_id[, name_column])
-//   POST /api/admin/import/commit   json{ token, section_id, names[] }
-//
-// Preview parses and reports; it writes nothing. Commit re-validates everything
-// server-side and imports transactionally. Both sit behind requireAdmin like
-// every other admin route, and every error the client can cause is Arabic JSON.
-
 const express = require('express');
 const multer = require('multer');
 const { requireAdmin } = require('../middleware/requireAdmin');
@@ -72,7 +64,7 @@ function importRouter(db) {
       res.json({ ...report, token });
     } catch (e) {
       if (e instanceof ImportError) return res.status(400).json({ error: e.message });
-      throw e; // terminal error middleware answers in Arabic without a stack trace
+      throw e;
     }
   });
 

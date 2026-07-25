@@ -3,27 +3,13 @@ const Database = require('better-sqlite3');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// SQLite-backed express-session store so admin sessions survive process
-// restarts (the default MemoryStore forgets everything and leaks in production).
-//
-// Hand-written on top of the better-sqlite3 dependency the app already ships,
-// rather than adding a third-party store package: the Store interface is five
-// small methods, better-sqlite3 is synchronous (no callback races), and zero
-// new dependencies means zero new supply-chain and native-build risk.
-//
-// Sessions live in a `sessions` table inside the same database file as the
-// grades, so the existing backup path captures them too. The store opens its
-// own connection to the file; better-sqlite3 is synchronous and Node is
-// single-threaded, so the two in-process connections can never write at the
-// same instant.
 class SqliteSessionStore extends Store {
   constructor(options = {}) {
     super();
     if (!options.db && !options.dbPath) {
       throw new Error('SqliteSessionStore requires a `db` handle or a `dbPath`');
     }
-    // Fallback lifetime for sessions whose cookie has no expiry (the admin
-    // cookie is a browser-session cookie). touch() renews it on activity.
+
     this.ttlMs = options.ttlMs || DAY_MS;
     this.ownsDb = !options.db;
     this.db = options.db || new Database(options.dbPath);
@@ -31,7 +17,7 @@ class SqliteSessionStore extends Store {
       this.db.pragma('journal_mode = WAL');
       this.db.pragma('busy_timeout = 5000');
     }
-    // Idempotent, same pattern as the main schema in src/db.js.
+
     this.db.exec(
       'CREATE TABLE IF NOT EXISTS sessions (\n' +
       '  sid TEXT PRIMARY KEY,\n' +
@@ -52,10 +38,10 @@ class SqliteSessionStore extends Store {
       clear: this.db.prepare('DELETE FROM sessions'),
       all: this.db.prepare('SELECT data FROM sessions WHERE expires_at > ?'),
     };
-    // An unbounded sessions table is a slow leak: prune on boot and on a timer.
+
     this.prune();
     this.pruneTimer = setInterval(() => {
-      try { this.prune(); } catch { /* never let pruning take the app down */ }
+      try { this.prune(); } catch {  }
     }, options.pruneIntervalMs || 15 * 60 * 1000);
     if (this.pruneTimer.unref) this.pruneTimer.unref();
   }
@@ -140,7 +126,6 @@ class SqliteSessionStore extends Store {
     setImmediate(callback, null, sessions);
   }
 
-  // Deletes expired rows; returns how many were removed.
   prune() {
     return this.stmts.prune.run(Date.now()).changes;
   }

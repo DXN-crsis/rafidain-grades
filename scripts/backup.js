@@ -1,16 +1,4 @@
 #!/usr/bin/env node
-// نسخ احتياطي متّسق لقاعدة بيانات المنصة.
-//
-// الاستخدام:
-//   node scripts/backup.js [--db <مسار قاعدة البيانات>] [--dest <مجلد الوجهة>]
-//
-// المتغيرات البيئية:
-//   DB_PATH     مسار قاعدة البيانات المصدر (الافتراضي: data/grades.sqlite)
-//   BACKUP_DIR  مجلد حفظ النسخ الاحتياطية (الافتراضي: backups/)
-//
-// يستخدم السكربت واجهة النسخ الاحتياطي الرسمية في SQLite عبر better-sqlite3
-// (db.backup)، وهي تنتج لقطة متّسقة حتى أثناء عمل الخادم وفي وضع WAL.
-// النسخ بأمر copy عادي أثناء التشغيل قد ينتج ملفاً تالفاً، لذلك لا تستخدمه.
 
 const path = require('node:path');
 const fs = require('node:fs');
@@ -78,7 +66,7 @@ async function main() {
 
     console.log(`المصدر: ${srcPath}`);
     console.log(`الوجهة: ${destPath}`);
-    // واجهة النسخ الاحتياطي في SQLite: لقطة متّسقة حتى أثناء الكتابة.
+
     await src.backup(destPath);
   } catch (err) {
     console.error(`فشل النسخ الاحتياطي: ${err.message}`);
@@ -86,7 +74,6 @@ async function main() {
     return 1;
   }
 
-  // التحقق: الملف الناتج قاعدة بيانات سليمة تحتوي الجداول المتوقعة.
   let backup;
   try {
     backup = new Database(destPath, { readonly: true, fileMustExist: true });

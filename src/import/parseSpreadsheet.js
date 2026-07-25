@@ -1,9 +1,3 @@
-// XLSX / XLS / CSV to a uniform grid model:
-//   { sheets: [ { name, rows: string[][], firstRowNumber } ] }
-// where firstRowNumber is the 1-based row number OF THE FIRST GRID ROW in the
-// user's own file (Excel numbering), so every report entry can point the
-// teacher at the exact line they can see on their screen.
-
 const XLSX = require('xlsx');
 const { ImportError } = require('./zipGuard');
 
@@ -13,8 +7,6 @@ const MAX_GRID_COLS = 256;
 const ERR_UNREADABLE = 'تعذر قراءة الملف — يبدو أنه تالف أو غير مكتمل. أعد حفظ الملف ثم حاول مرة أخرى';
 const ERR_TOO_WIDE = 'الملف أكبر من المعقول لكشف طلبة — تأكد من أنك رفعت الملف الصحيح';
 
-// windows-1256 (Arabic) high half, from the Unicode reference mapping.
-// Index = byte - 0x80.
 const CP1256_HIGH = [
   0x20AC, 0x067E, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021,
   0x02C6, 0x2030, 0x0679, 0x2039, 0x0152, 0x0686, 0x0698, 0x0688,
@@ -40,8 +32,6 @@ function decodeCp1256(buffer) {
   return out;
 }
 
-// CSV bytes to a JS string: UTF-8/UTF-16 BOMs first, then strict UTF-8,
-// then legacy Arabic Windows-1256 (what old Excel installations export).
 function decodeTextBuffer(buffer) {
   if (buffer.length >= 2) {
     if (buffer[0] === 0xFF && buffer[1] === 0xFE) return buffer.toString('utf16le').slice(1);
@@ -71,7 +61,7 @@ function workbookToSheets(wb) {
     const height = range.e.r - range.s.r + 1;
     const width = range.e.c - range.s.c + 1;
     if (height > MAX_GRID_ROWS || width > MAX_GRID_COLS) throw new ImportError(ERR_TOO_WIDE);
-    // raw:false → the formatted text the teacher actually sees in the cell.
+
     const rows = XLSX.utils.sheet_to_json(ws, {
       header: 1, raw: false, defval: '', blankrows: true,
     }).map((r) => r.map((c) => String(c ?? '')));

@@ -1,15 +1,3 @@
-/* ==========================================================================
-   استيراد الطلبة من ملف — يبني فوق العقد الثابت في src/routes/import.js
-   (POST /api/admin/import/preview متعدد الأجزاء، POST /api/admin/import/commit
-   JSON). تدفّق واحد موجّه: الشعبة ← الملف ← المعاينة والتأكيد ← النتيجة.
-   يعيد استخدام مكوّن .q-step من الإضافة السريعة ليبقى شكل الخطوات واحداً في
-   كل الشاشة، ويمرّ كل نجاح وفشل عبر مركز الإشعارات (notify) في admin.js.
-
-   قواعد ثابتة من admin.js تُتَّبع هنا حرفياً:
-   - كل نص قادم من الملف المرفوع أو من استجابة الخادم يمر عبر escapeHtml.
-   - لا window.prompt ولا alert ولا confirm.
-   - مؤشرات التحميل حقيقية (تقدّم رفع فعلي عبر XMLHttpRequest)، لا وهمية.
-   ========================================================================== */
 (function () {
   'use strict';
 
@@ -36,21 +24,14 @@
   const CONF_LABEL = { high: 'ثقة عالية', medium: 'ثقة متوسطة', low: 'ثقة منخفضة' };
   const CONF_BADGE = { high: 'badge-mode full', medium: 'badge-mode', low: 'badge-fail' };
 
-  let prefill = null; // {id, name, path} مضبوطة من openImportFlow()، تُستهلك عند أول رسم
+  let prefill = null;
 
-  // نقطة الدخول الوحيدة من باقي admin.js: تمرّر الشعبة الحالية إن وُجدت
-  // (أو null فتُعرض خطوة اختيار الشعبة) ثم تنتقل عبر الموجّه القائم أصلاً،
-  // فتستفيد مجاناً من حارس «درجات غير محفوظة» في route().
   function openImportFlow(section) {
     prefill = section || null;
     route('import');
   }
   window.openImportFlow = openImportFlow;
 
-  /* ---- مساعد الرفع متعدد الأجزاء — يطابق معالجة أخطاء apiCall حرفياً
-     (فشل شبكة عربي موحّد، تحويل عند 401، رسالة الخادم عند فشل غير ناجح)،
-     لكن عبر XMLHttpRequest كي يتيح تقدّم رفع حقيقياً — لا وهمياً — لملف
-     قد يبلغ ٥ ميغابايت ويستغرق وقتاً فعلياً. ---- */
   function apiUpload(url, formData, { onProgress, onXhr } = {}) {
     return new Promise((resolve, reject) => {
       let xhr;
@@ -91,7 +72,6 @@
     return `${arDigits(Math.round((kb / 1024) * 10) / 10)} ميغابايت`;
   }
 
-  // تاريخ اليوم لورقة الطباعة فقط — أرقام عربية-هندية مثل بقية نصوص الحالة.
   function todayLabel() {
     const d = new Date();
     const y = d.getFullYear();
@@ -104,25 +84,22 @@
     return `${arDigits(Math.round(fraction * 100))}٪`;
   }
 
-  /* ========================================================================
-     الشاشة — routes.import (مُسجَّلة إضافياً في admin.js)
-     ======================================================================== */
   async function renderImportView() {
     view.innerHTML = '';
 
     const ui = {
-      section: prefill,           // {id, name, path} | null
-      file: null,                 // كائن File المختار حالياً
-      phase: 'idle',              // idle | uploading | parsing
+      section: prefill,
+      file: null,
+      phase: 'idle',
       progress: 0,
-      preview: null,              // استجابة المعاينة كاملة كما وصلت من الخادم
-      rowChecked: new Map(),      // row_number -> boolean
-      filter: null,               // تصفية جدول الصفوف حسب الفئة
+      preview: null,
+      rowChecked: new Map(),
+      filter: null,
       overrideOpen: false,
       overrideCol: null,
       committing: false,
       tokenExpired: false,
-      result: null,               // {imported, students, rejected}
+      result: null,
     };
     prefill = null;
 
@@ -139,7 +116,6 @@
 
     function setStatus(t) { statusEl.textContent = t; }
 
-    /* ---- لبنة خطوة مطابقة لمكوّن q-step في الإضافة السريعة، لنفس الهوية البصرية ---- */
     function stepShell(num, key, title, stateName, { summary, waitReason, collapsed } = {}) {
       const doneNum = stateName === 'done' ? iconHtml('check') : arDigits(num);
       return el(`<section class="q-step" data-state="${stateName}" data-step="${key}" aria-label="${escapeHtml(title)}">
@@ -154,9 +130,6 @@
       </section>`);
     }
 
-    /* ====================================================================
-       الخطوة ١ — الشعبة (تُتخطى بصرياً إن وصلت مُهيّأة من شاشة الطلبة)
-       ==================================================================== */
     let deptCache = null;
 
     async function paintSectionBody(body) {
@@ -167,7 +140,7 @@
           deptCache = { depts };
         } catch (e) {
           body.innerHTML = `<div class="inline-note danger">${iconHtml('alert')}<span>${escapeHtml(e.message)}</span></div>`;
-          injectIcons(body); // استدعاء ضروري هنا: يقع خارج التزامن مع الرسم الرئيسي
+          injectIcons(body);
           return;
         }
       }
@@ -230,9 +203,6 @@
       if (dSel.options.length === 2) { dSel.value = dSel.options[1].value; dSel.onchange(); }
     }
 
-    /* ====================================================================
-       الخطوة ٢ — الملف
-       ==================================================================== */
     function resetFileState() {
       ui.file = null; ui.progress = 0; ui.phase = 'idle';
       ui.preview = null; ui.rowChecked = new Map(); ui.filter = null;
@@ -268,8 +238,7 @@
         ui.phase = 'idle';
         ui.preview = data;
         ui.rowChecked = initRowChecked(data);
-        // عند إعادة المعاينة بعمود مختلف على الملف نفسه، حافظ على أي تبديل
-        // يدوي للمدرّس إن بقي رقم السطر نفسه ظاهراً في النتيجة الجديدة.
+
         if (nameColumnOverride !== undefined && prevChecked.size > 0) {
           for (const [rn, checked] of prevChecked) if (ui.rowChecked.has(rn)) ui.rowChecked.set(rn, checked);
         }
@@ -318,9 +287,6 @@
       });
     }
 
-    /* ====================================================================
-       الخطوة ٣ — المعاينة والتأكيد
-       ==================================================================== */
     function checkedCount() {
       let n = 0;
       for (const v of ui.rowChecked.values()) if (v) n += 1;
@@ -421,9 +387,6 @@
       }
     }
 
-    /* ====================================================================
-       الخطوة ٤ — النتيجة
-       ==================================================================== */
     function buildPrintSheet(result) {
       const rowsHtml = result.students.map((s, i) => `<tr><td>${arDigits(i + 1)}</td><td>${escapeHtml(s.name)}</td><td class="import-print-examno">${escapeHtml(s.exam_number)}</td></tr>`).join('');
       return el(`<div class="import-print-sheet" aria-hidden="true">
@@ -443,15 +406,9 @@
       else notify('تعذر النسخ — انسخ القائمة يدوياً', 'danger');
     }
 
-    /* ====================================================================
-       الرسم الكامل — يُستدعى كاملاً عند كل تحول رئيسي في الحالة.
-       تبديل صندوق تحديد صف واحد لا يستدعي هذه الدالة (يحدّث الصف والشريط
-       مباشرة) كي لا يفقد المدرّس موضع التمرير داخل جدول طويل.
-       ==================================================================== */
     function paint() {
       stepsHost.innerHTML = '';
 
-      /* ---- النتيجة تحلّ محل كل الخطوات بعد نجاح الاستيراد ---- */
       if (ui.result) {
         setStatus(`تم استيراد ${countStudents(ui.result.imported)} بنجاح.`);
         const card = el(`<div class="card rise">
@@ -500,7 +457,6 @@
 
       const secDone = !!ui.section;
 
-      /* ---- الخطوة ١: الشعبة ---- */
       const stepSec = stepShell(1, 'section', 'الشعبة', secDone ? 'done' : 'active', {
         collapsed: secDone,
         summary: ui.section ? `<b>${escapeHtml(ui.section.path || ui.section.name)}</b>` : '',
@@ -508,7 +464,6 @@
       if (!secDone) paintSectionBody(stepSec.querySelector('.q-body')).catch((e) => notify(e.message, 'danger'));
       stepsHost.appendChild(stepSec);
 
-      /* ---- الخطوة ٢: الملف ---- */
       const fileDone = !!ui.preview;
       const stepFile = stepShell(2, 'file', 'الملف', !secDone ? 'waiting' : (fileDone ? 'done' : 'active'), {
         collapsed: fileDone,
@@ -542,7 +497,6 @@
       }
       stepsHost.appendChild(stepFile);
 
-      /* ---- الخطوة ٣: المعاينة والتأكيد ---- */
       const stepPrev = stepShell(3, 'preview', 'المعاينة والتأكيد', !fileDone ? 'waiting' : 'active', {
         waitReason: 'ارفع الملف أولاً',
       });
@@ -561,7 +515,6 @@
           body.appendChild(actions);
           setStatus('انتهت صلاحية المعاينة — اضغط «إعادة المعاينة» للمتابعة دون فقدان أي شيء.');
         } else {
-          // سطر ما فهمه النظام
           const sourceBits = [`قرأت الملف: <b>${escapeHtml(p.source.filename)}</b>`];
           if (p.source.sheet) sourceBits.push(`ورقة «${escapeHtml(p.source.sheet)}»`);
           sourceBits.push(`عمود الأسماء: «${escapeHtml(p.detection.name_header || (`العمود ${arDigits(p.detection.name_column + 1)}`))}»`);
@@ -571,7 +524,6 @@
             — ${escapeHtml(p.detection.reason)}
           </p>`));
 
-          // التحكم بعمود الأسماء — بارز وجوباً عندما لا تكون الثقة عالية
           const prominent = p.detection.confidence !== 'high';
           const ov = el(`<div class="import-override${prominent ? ' is-prominent' : ''}"></div>`);
           if (prominent) {
@@ -609,7 +561,6 @@
           ovBody.querySelector('[data-ov-apply]').onclick = () => { ui.overrideCol = Number(ovSel.value); reprocessWithColumn(ui.overrideCol); };
           body.appendChild(ov);
 
-          // بطاقات الملخص الخمس — تصفية الجدول بالضغط، وتُلغى بضغطة ثانية
           const stats = el('<div class="import-stats"></div>');
           for (const key of BUCKET_ORDER) {
             const n = p.summary[key];
@@ -622,7 +573,6 @@
           }
           body.appendChild(stats);
 
-          // شريط أدوات الجدول
           const toolbar = el(`<div class="import-rows-toolbar">
             <span class="import-rows-count">${arDigits(p.rows.length)} صفاً — ${arDigits(checkedCount())} محدّد</span>
             <span class="import-bulk-links">
@@ -661,7 +611,6 @@
       }
       stepsHost.appendChild(stepPrev);
 
-      /* أزرار «تغيير» للخطوات المطوية */
       stepsHost.querySelectorAll('.q-step [data-edit]').forEach((btn) => {
         btn.onclick = () => {
           const key = btn.closest('.q-step').dataset.step;
