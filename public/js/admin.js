@@ -278,6 +278,11 @@ function emptyStateHtml(icon, title, sub) {
 const view = document.getElementById('view');
 
 /* ===== حالة مشتركة بين الشاشات ===== */
+/* اسم الشعبة الضمنية لمرحلة غير مقسّمة إلى شعب. الطالب يجب أن يرتبط بشعبة
+   تقنياً (منها يُعرَف صفّه ومواده)، لكن المدرّس غير ملزَم بالتفكير بذلك: عند
+   التخطّي تُنشأ شعبة واحدة بهذا الاسم وتُخفى تسميتها في وثيقة نتيجة الطالب. */
+const NO_SECTION_NAME = 'بدون شعبة';
+
 const state = { deptId: null, stageId: null, sectionId: null, subjectId: null };
 
 /* ==========================================================================
@@ -390,7 +395,7 @@ async function renderQuickView() {
   function addRowFor(key, placeholder, btnLabel, onAdd) {
     const row = el(`<div class="add-row">
       <input class="input" placeholder="${escapeHtml(placeholder)}" aria-label="${escapeHtml(placeholder)}">
-      <button type="button" class="btn btn-soft">${iconHtml('plus')}${escapeHtml(btnLabel)}</button>
+      <button type="button" class="btn btn-soft" data-icon-spin>${iconHtml('plus')}${escapeHtml(btnLabel)}</button>
     </div>`);
     const input = row.querySelector('input');
     const btn = row.querySelector('button');
@@ -541,6 +546,30 @@ async function renderQuickView() {
         } else {
           body.appendChild(el(`<p class="q-hint">لا توجد شعب في هذه المرحلة بعد — اكتب اسم الشعبة (مثل: شعبة أ) واضغط إضافة.</p>`));
         }
+
+        /* مدرسة لا تقسّم مرحلتها إلى شعب ليست ملزَمة باختراع شعبة: هذا الزر
+           يتخطّى الخطوة ويضع الطلبة مباشرة تحت المرحلة. تقنياً يستعمل شعبة
+           واحدة باسم NO_SECTION_NAME تُنشأ عند الحاجة فقط — لأن ارتباط الطالب
+           بمرحلته يمرّ عبر الشعبة، وقطع ذلك الارتباط يكسر إدخال الدرجات كلياً.
+           الشعبة تبقى ظاهرة في «الأقسام والمراحل» ويمكن حذفها كأي شعبة. */
+        if (!qd.sections.some(x => x.name === NO_SECTION_NAME)) {
+          const skipWrap = el('<div class="skip-section"></div>');
+          const skipBtn = el(`<button type="button" class="btn btn-ghost btn-sm">${iconHtml('arrowRight')}المرحلة غير مقسّمة إلى شعب — تخطَّ هذه الخطوة</button>`);
+          skipBtn.onclick = async () => {
+            skipBtn.disabled = true;
+            try {
+              const created = await apiCall('POST', '/api/admin/sections', { name: NO_SECTION_NAME, stage_id: state.stageId });
+              state.sectionId = created.id;
+              quickUI.expanded.section = false;
+              quickUI.lastConfirm = { step: 'section', html: 'تم تخطّي الشعب — الطلبة سيُضافون مباشرة تحت المرحلة.' };
+              notify('تم تخطّي الشعب لهذه المرحلة');
+              await loadSections();
+            } catch (e) { showToast(e.message, true); skipBtn.disabled = false; }
+          };
+          skipWrap.appendChild(skipBtn);
+          skipWrap.appendChild(el('<p class="q-hint">تقدر ترجع وتضيف شعباً لاحقاً في أي وقت.</p>'));
+          body.appendChild(skipWrap);
+        }
         body.appendChild(addRowFor('section', 'اسم الشعبة', 'إضافة الشعبة', async (name) => {
           const created = await apiCall('POST', '/api/admin/sections', { name, stage_id: state.stageId });
           state.sectionId = created.id;
@@ -593,7 +622,7 @@ async function renderQuickView() {
             <option value="final_only">الدرجة النهائية فقط — الأسهل</option>
             <option value="full">سجل درجات كامل</option>
           </select>
-          <button type="button" class="btn btn-soft">${iconHtml('plus')}إضافة المادة</button>
+          <button type="button" class="btn btn-soft" data-icon-spin>${iconHtml('plus')}إضافة المادة</button>
         </div>`);
         const nameInput = addRow.querySelector('#qSubName');
         const modeSel = addRow.querySelector('#qSubMode');
@@ -649,7 +678,7 @@ async function renderQuickView() {
       else {
         const addRow = el(`<div class="add-row">
           <input class="input" id="qStudentName" placeholder="اسم الطالب الثلاثي" aria-label="اسم الطالب الثلاثي">
-          <button type="button" class="btn btn-primary">${iconHtml('plus')}إضافة الطالب</button>
+          <button type="button" class="btn btn-primary" data-icon-spin>${iconHtml('plus')}إضافة الطالب</button>
         </div>`);
         const input = addRow.querySelector('input');
         input.value = quickUI.drafts.student || '';
@@ -827,7 +856,7 @@ async function renderCatalogView() {
     const listHost = el('<div></div>');
     const addRow = el(`<div class="add-row">
       <input class="input" placeholder="اسم القسم الجديد (مثل: تقنيات الحاسوب)" aria-label="اسم القسم الجديد">
-      <button type="button" class="btn btn-primary">${iconHtml('plus')}إضافة قسم</button>
+      <button type="button" class="btn btn-primary" data-icon-spin>${iconHtml('plus')}إضافة قسم</button>
     </div>`);
     const input = addRow.querySelector('input');
     async function addDept() {
@@ -904,7 +933,7 @@ async function renderCatalogView() {
     const d = cat.dept;
     const addRow = el(`<div class="add-row">
       <input class="input" placeholder="اسم المرحلة الجديدة (مثل: المرحلة الثالثة)" aria-label="اسم المرحلة الجديدة">
-      <button type="button" class="btn btn-primary">${iconHtml('plus')}إضافة مرحلة</button>
+      <button type="button" class="btn btn-primary" data-icon-spin>${iconHtml('plus')}إضافة مرحلة</button>
     </div>`);
     const listHost = el('<div></div>');
     const input = addRow.querySelector('input');
@@ -985,7 +1014,7 @@ async function renderCatalogView() {
       <h3 class="group-title">${iconHtml('users')}الشعب <span class="muted">— كل طالب ينتمي إلى شعبة واحدة</span></h3>
       <div class="add-row">
         <input class="input" placeholder="اسم الشعبة الجديدة (مثل: شعبة أ)" aria-label="اسم الشعبة الجديدة">
-        <button type="button" class="btn btn-primary">${iconHtml('plus')}إضافة شعبة</button>
+        <button type="button" class="btn btn-primary" data-icon-spin>${iconHtml('plus')}إضافة شعبة</button>
       </div>
       <div class="sec-list"></div>
     </section>`);
@@ -1056,7 +1085,7 @@ async function renderCatalogView() {
           <option value="final_only">الدرجة النهائية فقط — الأسهل</option>
           <option value="full">سجل درجات كامل</option>
         </select>
-        <button type="button" class="btn btn-primary">${iconHtml('plus')}إضافة مادة</button>
+        <button type="button" class="btn btn-primary" data-icon-spin>${iconHtml('plus')}إضافة مادة</button>
       </div>
       <div class="sub-list"></div>
     </section>`);
