@@ -1279,3 +1279,44 @@ table.grades td .input {
   }
   table.print-grades tbody tr { break-inside: avoid; page-break-inside: avoid; }
 }
+
+/* ==========================================================================
+   دخول متدرّج للبطاقات — يعيد استعمال حركة rise الموجودة أصلاً بدل إضافة
+   حركة جديدة. التدرّج بـ nth-child خالص: لا JavaScript، ولا سمة على كل عنصر.
+   بعد العنصر العاشر تتساوى المهلة (فرق غير محسوس) فلا تطول القائمة بلا داعٍ.
+   @media (prefers-reduced-motion: reduce) أعلاه يلغي هذا كله تلقائياً.
+   ========================================================================== */
+.subject-cards > .subject-card { animation: rise var(--t-med) var(--ease) both; }
+.subject-cards > .subject-card:nth-child(1) { animation-delay: 0ms; }
+.subject-cards > .subject-card:nth-child(2) { animation-delay: 50ms; }
+.subject-cards > .subject-card:nth-child(3) { animation-delay: 100ms; }
+.subject-cards > .subject-card:nth-child(4) { animation-delay: 150ms; }
+.subject-cards > .subject-card:nth-child(5) { animation-delay: 200ms; }
+.subject-cards > .subject-card:nth-child(6) { animation-delay: 250ms; }
+.subject-cards > .subject-card:nth-child(7) { animation-delay: 300ms; }
+.subject-cards > .subject-card:nth-child(n+8) { animation-delay: 350ms; }
+
+/* ارتفاع خفيف عند المرور — يوضّح أن البطاقة وحدة قائمة بذاتها. */
+.subject-card {
+  transition: transform var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
+}
+.subject-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md, 0 8px 24px rgba(0, 0, 0, 0.08));
+}
+
+/* الدرجة النهائية تلمع لمعة واحدة عند كشف النتيجة، فتقع عين الطالب عليها
+   أولاً. لمعة واحدة فقط لا حلقة مكرّرة — التكرار يتحوّل إلى إزعاج. */
+@keyframes finalGlow {
+  0%   { background-size: 0% 100%; }
+  60%  { background-size: 100% 100%; }
+  100% { background-size: 0% 100%; }
+}
+.grades-section:not(.is-blurred) .subject-row-final .grade-cell {
+  background-image: linear-gradient(var(--accent-soft), var(--accent-soft));
+  background-repeat: no-repeat;
+  background-position: center;
+  border-radius: 6px;
+  animation: finalGlow 1.6s var(--ease) 1 both;
+  animation-delay: 420ms;
+}
