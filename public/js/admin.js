@@ -282,6 +282,19 @@ const view = document.getElementById('view');
    تقنياً (منها يُعرَف صفّه ومواده)، لكن المدرّس غير ملزَم بالتفكير بذلك: عند
    التخطّي تُنشأ شعبة واحدة بهذا الاسم وتُخفى تسميتها في وثيقة نتيجة الطالب. */
 const NO_SECTION_NAME = 'بدون شعبة';
+// قيمة خيار «بدون شعبة» في القوائم المنسدلة قبل أن تُحسم إلى معرّف حقيقي.
+const NO_SECTION_VALUE = '__none__';
+const NO_SECTION_LABEL = 'بدون شعبة — المرحلة غير مقسّمة';
+
+/* يُرجع الشعبة الضمنية للمرحلة، وينشئها إن لم تكن موجودة. نقطة واحدة تمرّ بها
+   كل الشاشات (الطلبة، الإضافة السريعة، الاستيراد) كي لا يتكرّر المنطق ولا
+   تُنشأ شعبتان ضمنيتان لنفس المرحلة. */
+async function ensureNoSection(stageId) {
+  const secs = await apiCall('GET', `/api/admin/sections?stage_id=${stageId}`);
+  const found = secs.find(s => s.name === NO_SECTION_NAME);
+  if (found) return found;
+  return apiCall('POST', '/api/admin/sections', { name: NO_SECTION_NAME, stage_id: stageId });
+}
 
 const state = { deptId: null, stageId: null, sectionId: null, subjectId: null };
 
@@ -552,13 +565,13 @@ async function renderQuickView() {
            واحدة باسم NO_SECTION_NAME تُنشأ عند الحاجة فقط — لأن ارتباط الطالب
            بمرحلته يمرّ عبر الشعبة، وقطع ذلك الارتباط يكسر إدخال الدرجات كلياً.
            الشعبة تبقى ظاهرة في «الأقسام والمراحل» ويمكن حذفها كأي شعبة. */
-        if (!qd.sections.some(x => x.name === NO_SECTION_NAME)) {
+        {
           const skipWrap = el('<div class="skip-section"></div>');
           const skipBtn = el(`<button type="button" class="btn btn-ghost btn-sm">${iconHtml('arrowRight')}المرحلة غير مقسّمة إلى شعب — تخطَّ هذه الخطوة</button>`);
           skipBtn.onclick = async () => {
             skipBtn.disabled = true;
             try {
-              const created = await apiCall('POST', '/api/admin/sections', { name: NO_SECTION_NAME, stage_id: state.stageId });
+              const created = await ensureNoSection(state.stageId);
               state.sectionId = created.id;
               quickUI.expanded.section = false;
               quickUI.lastConfirm = { step: 'section', html: 'تم تخطّي الشعب — الطلبة سيُضافون مباشرة تحت المرحلة.' };
@@ -1372,13 +1385,30 @@ async function renderStudentsView() {
     try {
       const secs = await apiCall('GET', `/api/admin/sections?stage_id=${stageSel.value}`);
       for (const s of secs) secSel.appendChild(el(`<option value="${s.id}">${escapeHtml(s.name)}</option>`));
+      // المرحلة غير المقسّمة إلى شعب: خيار صريح في نفس القائمة بدل إجبار
+      // المدرّس على اختراع شعبة. تُستعمل شعبة ضمنية واحدة تُنشأ عند أول حاجة.
+      secSel.appendChild(el(`<option value="${NO_SECTION_VALUE}">${escapeHtml(NO_SECTION_LABEL)}</option>`));
       secSel.disabled = false;
     } catch (e) { showToast(e.message, true); }
   };
 
-  secSel.onchange = () => {
-    addBar.hidden = !secSel.value;
+  secSel.onchange = async () => {
     confirmHost.innerHTML = '';
+    if (secSel.value === NO_SECTION_VALUE) {
+      // يُحسم الآن إلى معرّف شعبة حقيقي كي تعمل بقية الشاشة دون أي استثناء.
+      secSel.disabled = true;
+      try {
+        const sec = await ensureNoSection(Number(stageSel.value));
+        if (!secSel.querySelector(`option[value="${sec.id}"]`)) {
+          secSel.insertBefore(el(`<option value="${sec.id}">${escapeHtml(NO_SECTION_LABEL)}</option>`), secSel.lastElementChild);
+        }
+        secSel.value = String(sec.id);
+      } catch (e) {
+        showToast(e.message, true);
+        secSel.value = '';
+      } finally { secSel.disabled = false; }
+    }
+    addBar.hidden = !secSel.value;
     if (secSel.value) paintSection().catch(e => showToast(e.message, true));
     else repaintCurrent();
   };
