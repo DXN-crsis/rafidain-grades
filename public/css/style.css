@@ -1320,3 +1320,53 @@ table.grades td .input {
   animation: finalGlow 1.6s var(--ease) 1 both;
   animation-delay: 420ms;
 }
+
+/* ===== تخطّي الشعب ===== */
+.skip-section {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--border);
+}
+.skip-section .q-hint { margin: var(--space-1) 0 0; }
+/* السهم يشير لجهة القراءة في واجهة من اليمين لليسار. */
+.skip-section .btn svg { transform: scaleX(-1); }
+
+/* ==========================================================================
+   حركات إضافية — كلها CSS خالص، وكلها تُلغى تلقائياً تحت
+   prefers-reduced-motion بحكم القاعدة الشاملة أعلاه.
+   ========================================================================== */
+
+/* رقاقات الهوية في وثيقة النتيجة تدخل متدرّجة مثل البطاقات. */
+.meta-chips > .chip { animation: rise var(--t-med) var(--ease) both; }
+.meta-chips > .chip:nth-child(1) { animation-delay: 40ms; }
+.meta-chips > .chip:nth-child(2) { animation-delay: 90ms; }
+.meta-chips > .chip:nth-child(3) { animation-delay: 140ms; }
+
+/* صفوف القوائم في لوحة الإدارة تدخل متدرّجة أيضاً. */
+.list-row { animation: rise var(--t-fast) var(--ease) both; }
+.list-row:nth-child(1) { animation-delay: 0ms; }
+.list-row:nth-child(2) { animation-delay: 35ms; }
+.list-row:nth-child(3) { animation-delay: 70ms; }
+.list-row:nth-child(4) { animation-delay: 105ms; }
+.list-row:nth-child(5) { animation-delay: 140ms; }
+.list-row:nth-child(n+6) { animation-delay: 170ms; }
+
+/* الأزرار: ضغطة محسوسة، وأيقونتها تتقدّم قليلاً عند المرور. */
+.btn svg { transition: transform var(--t-fast) var(--ease); }
+.btn:hover:not(:disabled) svg { transform: translateX(-2px); }
+.btn:active:not(:disabled) { transform: translateY(1px) scale(0.99); }
+/* أزرار الإضافة: علامة الزائد تدور ربع دورة عند المرور — إشارة صغيرة
+   إلى أن الضغط يفتح شيئاً جديداً. */
+.btn[data-icon-spin]:hover:not(:disabled) svg { transform: rotate(90deg); }
+
+/* أزرار التنقّل الجانبية: مؤشّر الحالة النشطة ينزلق بدل أن يقفز. */
+.nav-btn { transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease); }
+.nav-btn svg { transition: transform var(--t-fast) var(--ease); }
+.nav-btn:hover svg { transform: scale(1.08); }
+
+/* صفوف جدول الدرجات: إبراز الصف الذي يعمل عليه المدرّس الآن. */
+.grades tbody tr { transition: background var(--t-fast) var(--ease); }
+.grades tbody tr:focus-within { background: var(--accent-soft); }
+
+/* بطاقة الخطوة النشطة في الإضافة السريعة تتنفّس بهدوء عند تفعيلها. */
+.q-step[data-state="active"] { animation: rise var(--t-med) var(--ease) both; }

@@ -84,7 +84,12 @@ if (resultRoot) {
     // بطاقة الهوية: القسم والمرحلة والشعبة كرقاقات (بناء DOM آمن دون innerHTML).
     const metaEl = document.getElementById('studentMeta');
     metaEl.innerHTML = '';
-    [['القسم', data.department], ['المرحلة', data.stage], ['الشعبة', data.section]].forEach(([label, value]) => {
+    // مرحلة غير مقسّمة إلى شعب تحمل شعبة ضمنية اسمها «بدون شعبة» (تفصيل داخلي
+    // يخصّ ربط الطالب بمرحلته). لا تُعرَض رقاقتها في وثيقة النتيجة: كتابة
+    // «الشعبة: بدون شعبة» على وثيقة رسمية ركاكة، وغيابها أوضح وأصدق.
+    const chips = [['القسم', data.department], ['المرحلة', data.stage]];
+    if (data.section && data.section !== 'بدون شعبة') chips.push(['الشعبة', data.section]);
+    chips.forEach(([label, value]) => {
       const li = document.createElement('li');
       li.className = 'chip';
       const lab = document.createElement('span');
