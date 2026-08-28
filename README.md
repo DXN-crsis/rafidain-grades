@@ -1,50 +1,53 @@
-# منصة عرض النتائج — إعدادية الرافدين المهنية
+**English** · [العربية](README.ar.md)
 
-منصة رسمية لعرض نتائج الطلبة. يدخل الطالب برقمه الامتحاني السري، وتدير الإدارة
-الأقسام والمراحل والشعب والمواد والدرجات من لوحة تحكم واحدة.
+# Results Portal — Al-Rafidain Vocational Preparatory School
 
-## التشغيل
+Students look up their exam results with their secret exam number. Staff manage departments, stages, sections, subjects, and grades from an admin dashboard.
+
+## <img src="https://api.iconify.design/octicon/terminal-16.svg?color=%238b949e&height=18" align="top"> Running locally
 
 ```bash
 npm install
 npm start
 ```
 
-ثم افتح: http://localhost:3000
+Then open http://localhost:3000
 
-## حساب الإدارة الافتراضي
+## <img src="https://api.iconify.design/octicon/key-16.svg?color=%238b949e&height=18" align="top"> Admin account
 
-- المستخدم: `admin`
-- كلمة المرور: `rafidain@2026`
+Defaults:
 
-**مهم:** غيّر كلمة المرور قبل النشر عبر متغيرات البيئة:
+- User: `admin`
+- Password: `rafidain@2026`
 
-```bash
-ADMIN_USER=... ADMIN_PASS=... npm start
-```
+> [!IMPORTANT]
+> Change these before deploying. Set them through environment variables:
+>
+> ```bash
+> ADMIN_USER=... ADMIN_PASS=... npm start
+> ```
+>
+> They apply on first run only, before `data/grades.sqlite` is created.
 
-(تُطبَّق عند أول تشغيل فقط — قبل إنشاء قاعدة البيانات `data/grades.sqlite`).
-
-## الاختبارات
+## <img src="https://api.iconify.design/octicon/beaker-16.svg?color=%238b949e&height=18" align="top"> Tests
 
 ```bash
 npm test
 ```
 
-## النشر على الإنترنت
+## <img src="https://api.iconify.design/octicon/rocket-16.svg?color=%238b949e&height=18" align="top"> Deployment
 
-دليل النشر الكامل على Railway — خطوة بخطوة، مع النسخ الاحتياطي والاستعادة
-واستكشاف الأخطاء — في: [`docs/دليل-النشر.md`](docs/دليل-النشر.md).
+The full Railway guide, including backup, restore, and troubleshooting, is in [`docs/دليل-النشر.md`](docs/دليل-النشر.md).
 
-**الأهم قبل النشر:** قرص تخزين دائم (Volume) على `/data` مع `DB_PATH=/data/grades.sqlite`،
-وإلا مُسحت البيانات عند كل نشر. التشغيل المحلي أعلاه يبقى كما هو دون أي إعداد إضافي.
+> [!WARNING]
+> Attach a persistent volume at `/data` and set `DB_PATH=/data/grades.sqlite`. Without it, the database is erased on every deploy.
 
-## النسخ الاحتياطي
+Local development needs no extra configuration.
+
+## <img src="https://api.iconify.design/octicon/database-16.svg?color=%238b949e&height=18" align="top"> Backups
 
 ```bash
 npm run backup
 ```
 
-يأخذ لقطة متّسقة من قاعدة البيانات (آمنة حتى أثناء عمل الخادم) في
-`backups/grades-backup-التاريخ.sqlite` بعد التحقق من سلامتها. التفاصيل
-والاستعادة في دليل النشر.
+Writes a verified snapshot to `backups/grades-backup-<date>.sqlite`. Safe to run while the server is up. Restore steps are in the deployment guide.
